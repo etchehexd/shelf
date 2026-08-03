@@ -97,11 +97,15 @@ type Op = {
 
 ### Conflict resolution
 
-Last-write-wins **per field**, not per row, compared on `updated_at`. Fields are
-independent in practice (you change progress on your phone, a score on your laptop), so
-merging per field means the two devices don't clobber each other. `activity` never
-conflicts — it's append-only with UUID primary keys generated client-side, so the same
-event inserted twice is idempotent.
+Row-level last-write-wins on `updated_at`: whichever side touched a row more recently
+keeps it. Rows are small and edits are naturally scoped to one at a time — you change
+progress on one title and a score on another — so row granularity loses nothing in
+practice. Anything finer would be inventing information the schema doesn't carry: there is
+one timestamp per row, not one per column.
+
+`activity` never conflicts. It's append-only with UUID primary keys generated on the
+client, so replaying a queued op after a flaky flush inserts the same key rather than a
+duplicate event.
 
 Realtime updates carry the originating `device_id` in the payload; the store drops echoes
 of its own writes so an in-flight local edit is never overwritten by its own round trip.

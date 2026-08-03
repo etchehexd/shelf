@@ -148,6 +148,10 @@ create table public.entries (
   favourite        boolean not null default false,
   started_at       date,
   finished_at      date,
+  -- Which browser wrote this row last. Realtime subscribers drop broadcasts
+  -- carrying their own device id; without it, the echo of your own write can
+  -- land after a newer local edit and visibly rewind the progress number.
+  device_id        text,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
 
