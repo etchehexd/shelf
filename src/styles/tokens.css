@@ -108,7 +108,9 @@
   --color-art: var(--art-accent);
   --color-art-quiet: var(--art-accent-quiet);
 
-  --color-current: var(--st-current);
+  /* Named `watching`, not `current`: `--color-current` would shadow Tailwind's
+     built-in `text-current` / `fill-current` (currentColor) utilities. */
+  --color-watching: var(--st-current);
   --color-completed: var(--st-completed);
   --color-planning: var(--st-planning);
   --color-paused: var(--st-paused);
