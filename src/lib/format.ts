@@ -38,9 +38,37 @@ export function duration(minutes: number): string {
   return `${mins}m`
 }
 
-/** AniList SCREAMING_SNAKE → "Screaming snake". */
+/**
+ * Values whose correct casing a generic sentence-caser can't know. Without
+ * these, the information panel proudly reads "Format: Tv".
+ */
+const HUMANIZED: Record<string, string> = {
+  TV: 'TV',
+  TV_SHORT: 'TV short',
+  OVA: 'OVA',
+  ONA: 'ONA',
+  MOVIE: 'Film',
+  MANGA: 'Manga',
+  NOVEL: 'Light novel',
+  ONE_SHOT: 'One shot',
+  NOT_YET_RELEASED: 'Not yet released',
+  VIDEO_GAME: 'Video game',
+  LIGHT_NOVEL: 'Light novel',
+  VISUAL_NOVEL: 'Visual novel',
+  WEB_NOVEL: 'Web novel',
+  MULTIMEDIA_PROJECT: 'Multimedia project',
+  PICTURE_BOOK: 'Picture book',
+  ALTERNATIVE: 'Alternative version',
+  SIDE_STORY: 'Side story',
+  SPIN_OFF: 'Spin-off',
+  PARENT: 'Parent story',
+}
+
+/** AniList SCREAMING_SNAKE → "Screaming snake", with acronyms preserved. */
 export function humanize(value: string | null | undefined): string {
   if (!value) return '—'
+  if (HUMANIZED[value]) return HUMANIZED[value]
+
   const spaced = value.replace(/_/g, ' ').toLowerCase()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }

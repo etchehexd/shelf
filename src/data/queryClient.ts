@@ -13,7 +13,17 @@ export const queryClient = new QueryClient({
       staleTime: 24 * 60 * 60 * 1000,
       gcTime: 7 * 24 * 60 * 60 * 1000,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
+      refetchOnReconnect: true,
+
+      /**
+       * These queries are read-only enrichment over a local-first app — the
+       * library itself never needs the network. The default 'online' mode parks
+       * a failed query until an `online` event arrives, which on a flaky link
+       * may be never; the failure mode is a section that stays blank with no
+       * error to show for it. Attempting and failing fast is strictly better
+       * here, so the retry policy below is the only thing deciding when to stop.
+       */
+      networkMode: 'always',
       retry: (failureCount, error) => {
         // A missing media id or a malformed query will fail identically forever.
         if (error instanceof AniListError && !error.retryable) return false
@@ -23,6 +33,11 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+// Dev-only handle for inspecting cache state from the console.
+if (import.meta.env.DEV) {
+  ;(window as unknown as { __queryClient?: QueryClient }).__queryClient = queryClient
+}
 
 /**
  * Bumped whenever the normalized shape changes, so a deploy can't leave users

@@ -108,23 +108,39 @@ export interface Media extends MediaSummary {
   nextAiringEpisode: AiringEpisode | null
 }
 
-/** The total a progress bar counts toward, or null when it isn't known yet. */
-export function totalUnits(media: Pick<MediaSummary, 'kind' | 'episodes' | 'chapters'>): number | null {
-  return media.kind === 'anime' ? media.episodes : media.chapters
+/**
+ * The total a progress bar counts toward, or null when it isn't known yet.
+ *
+ * Each kind counts in the unit people actually talk about: anime in episodes,
+ * manga in chapters, light novels in **volumes**. Novels are published and
+ * discussed by volume — nobody says "I'm on chapter 112 of Spice and Wolf" —
+ * and AniList's chapter counts for novels are usually null anyway.
+ */
+export function totalUnits(
+  media: Pick<MediaSummary, 'kind' | 'episodes' | 'chapters' | 'volumes'>,
+): number | null {
+  if (media.kind === 'anime') return media.episodes
+  if (media.kind === 'novel') return media.volumes
+  return media.chapters
 }
 
-/** "Episode" / "Chapter" — the unit the stepper counts. */
+/** "Episode" / "Chapter" / "Volume" — the unit the stepper counts. */
 export function unitName(kind: MediaKind): string {
-  return kind === 'anime' ? 'Episode' : 'Chapter'
+  if (kind === 'anime') return 'Episode'
+  return kind === 'novel' ? 'Volume' : 'Chapter'
 }
 
 export function unitNamePlural(kind: MediaKind): string {
-  return kind === 'anime' ? 'episodes' : 'chapters'
+  if (kind === 'anime') return 'episodes'
+  return kind === 'novel' ? 'volumes' : 'chapters'
 }
 
-/** Only manga and light novels track volumes; AniList has no such field for anime. */
+/**
+ * A *secondary* volume counter. Only manga gets one — novels already count in
+ * volumes, and AniList has no volume data for anime.
+ */
 export function tracksVolumes(kind: MediaKind): boolean {
-  return kind !== 'anime'
+  return kind === 'manga'
 }
 
 export const KIND_LABEL: Record<MediaKind, string> = {
@@ -137,4 +153,16 @@ export const KIND_LABEL_SINGULAR: Record<MediaKind, string> = {
   anime: 'Anime',
   manga: 'Manga',
   novel: 'Light novel',
+}
+
+/**
+ * "15 anime", "4 manga", "2 light novels".
+ *
+ * As loanwords, anime and manga take no English plural — the generic
+ * pluralize() helper produces "15 animes", which is exactly the kind of detail
+ * that makes an app feel machine-written.
+ */
+export function kindCount(kind: MediaKind, n: number): string {
+  if (kind === 'novel') return `${n} light novel${n === 1 ? '' : 's'}`
+  return `${n} ${kind}`
 }

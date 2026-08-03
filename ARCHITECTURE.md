@@ -188,8 +188,13 @@ call it without re-entering `profiles`' own RLS, which would recurse infinitely.
 — the app issues about eight distinct queries and needs precise control over the rate
 limit, which is far less code than configuring a full client.
 
-- **Token-bucket limiter.** AniList allows 90 req/min; the bucket is sized at 80 with a 60s
-  refill for headroom, and requests queue rather than fail.
+- **Adaptive token bucket.** AniList *documents* 90 req/min, but the enforced limit has
+  been 30 for a long time and is only discoverable from the `x-ratelimit-limit` response
+  header. Hardcoding the documented number fails in a nasty way — requests sail past the
+  real ceiling, come back 429, and entire rows of Discover vanish with no visible error.
+  So the bucket starts at 28 and re-derives itself from every response, reserving two
+  slots of headroom. If AniList raises the limit again, the client picks it up on the next
+  call. Requests queue rather than fail.
 - **Respects `Retry-After`.** A 429 parks the whole queue for the advertised duration.
 - **In-flight de-duplication.** Identical `(query, variables)` pairs share one promise, so
   ten cards mounting with the same media id issue one request.

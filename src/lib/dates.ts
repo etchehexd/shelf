@@ -47,13 +47,25 @@ export function timeLabel(ts: number): string {
 
 export function fullDate(value: string | number | null | undefined): string {
   if (!value) return '—'
-  const ts = typeof value === 'string' ? Date.parse(value) : value
+  const ts = typeof value === 'string' ? parseDateString(value) : value
   if (Number.isNaN(ts)) return '—'
   return new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   }).format(ts)
+}
+
+/**
+ * `Date.parse('2026-08-01')` is defined to mean UTC midnight, so anywhere west
+ * of Greenwich it formats as 31 July — a calendar date the user picked silently
+ * shifts by a day. Date-only strings are calendar dates, not instants, so parse
+ * them in local time.
+ */
+function parseDateString(value: string): number {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).getTime()
+  return Date.parse(value)
 }
 
 /** Greeting for the dashboard. */
