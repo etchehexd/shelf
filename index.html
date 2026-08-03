@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Shelf — your anime, manga & light novel library</title>
+    <meta
+      name="description"
+      content="A cozy digital bookshelf that understands your taste. Track, rate, rank and collect anime, manga and light novels."
+    />
+    <script>
+      // Apply the persisted theme before first paint so there is no flash.
+      try {
+        var raw = localStorage.getItem('shelf.prefs')
+        var theme = raw ? JSON.parse(raw)?.state?.theme : null
+        if (theme === 'system' || !theme) {
+          theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        }
+        document.documentElement.dataset.theme = theme
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark'
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

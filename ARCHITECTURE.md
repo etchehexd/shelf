@@ -1,0 +1,278 @@
+# Shelf — Architecture
+
+## The one decision everything else follows from
+
+There are **two worlds of data**, and they are never mixed.
+
+| | World A — Canon | World B — Personal |
+|---|---|---|
+| What | titles, art, episode counts, characters, staff, genres | status, progress, score, rank, collections, notes, history |
+| Origin | AniList GraphQL | the user |
+| Truth lives | AniList's servers | **Supabase Postgres** |
+| Mutability | read-only, effectively immutable | mutated constantly |
+| Owner in code | TanStack Query | Zustand store + sync outbox |
+| Join key | `mediaId` (AniList numeric id) | `media_id` |
+
+Supabase stores **only World B**. No anime metadata is ever copied into Postgres —
+that would mean owning a stale mirror of someone else's catalogue in exchange for nothing.
+A row in `entries` is `(user_id, media_id, status, progress, score, …)` and that is all.
+
+```
+                    ┌──────────────────────────────────┐
+                    │           components             │
+                    └───────┬──────────────────┬───────┘
+                  useMedia()│                  │useEntry(), useTracking()
+                            ▼                  ▼
+              ┌─────────────────────┐   ┌────────────────────────┐
+              │   TanStack Query    │   │  Zustand (authoritative │
+              │   cache + persist   │   │  in-session copy)      │
+              └──────────┬──────────┘   └───────────┬────────────┘
+                         │                          │ every mutation
+                normalize│                          ▼
+                         │              ┌────────────────────────┐
+                         │              │   outbox (IndexedDB)   │
+                         │              └───────────┬────────────┘
+                         │                          │ flush, batched
+                         ▼                          ▼
+              ┌─────────────────────┐   ┌────────────────────────┐
+              │  AniList GraphQL    │   │  Supabase (Postgres +  │
+              │  rate-limited client│   │  RLS + Realtime + Auth)│
+              └─────────────────────┘   └────────────────────────┘
+```
+
+---
+
+## Why local-first, and not just `await supabase.update()`
+
+Pressing `+1 episode` is the single most repeated action in this app. If it awaits a
+round trip it costs 100–400ms, needs a pending state, and has a failure mode — on the
+interaction the entire product is built around.
+
+So the write path is:
+
+```
+press +1
+  → zustand.applyLocal(patch)        ~0ms   UI springs immediately
+  → outbox.enqueue(op)               ~0ms   durable in IndexedDB
+  ─────────────────────────────────────── the user is already gone
+  → flush() → supabase upsert        ~200ms invisible
+  → realtime echo arrives → ignored (own device_id)
+```
+
+Consequences worth stating, because they are the reason the app feels the way it does:
+
+1. **No network in the write path.** The 280ms spring animation *is* the whole latency
+   budget, not a mask over one.
+2. **Offline works.** Not as a degraded mode — it is the normal mode, with a sync that
+   happens to be running. Close the laptop mid-episode, reopen on a plane, keep tracking.
+3. **AniList outages can't touch your data.** The worst case is a card showing a skeleton.
+   Progress, scores and collections are unaffected.
+4. **Rate limits can't corrupt anything.** Same reason.
+
+### The outbox
+
+`src/data/sync/outbox.ts`. Each queued op is:
+
+```ts
+type Op = {
+  id: string
+  entity: 'entry' | 'ranking' | 'collection' | 'collection_item' | 'activity' | 'profile'
+  kind: 'upsert' | 'delete'
+  key: string          // dedupe key, e.g. "entry:12345"
+  payload: unknown
+  updatedAt: number    // client clock, used for conflict resolution
+  attempts: number
+}
+```
+
+- **Coalescing.** Ops are keyed. Tapping `+1` eight times enqueues one op with
+  `progress: 8`, not eight ops. This is the difference between a binge session costing 1
+  request and costing 40.
+- **Ordering.** Flush is sequential per key, parallel across keys. `activity` ops are
+  insert-only and never coalesce — the log must keep every event.
+- **Retry.** Exponential backoff with jitter, capped at 60s. Permanent failures (RLS
+  denial, constraint violation) are dropped to a dead-letter list surfaced in Settings
+  rather than retried forever.
+- **Durability.** IndexedDB, not memory, so a refresh mid-flush loses nothing.
+
+### Conflict resolution
+
+Last-write-wins **per field**, not per row, compared on `updated_at`. Fields are
+independent in practice (you change progress on your phone, a score on your laptop), so
+merging per field means the two devices don't clobber each other. `activity` never
+conflicts — it's append-only with UUID primary keys generated client-side, so the same
+event inserted twice is idempotent.
+
+Realtime updates carry the originating `device_id` in the payload; the store drops echoes
+of its own writes so an in-flight local edit is never overwritten by its own round trip.
+
+### Degrading to local-only
+
+If `VITE_SUPABASE_URL` is unset, the client is `null`, the outbox never flushes, and
+everything else works unchanged against `localStorage`. This is not a special mode with its
+own code path — it is the same code path with sync disabled, which is why it can't rot.
+
+---
+
+## World B: the data model
+
+Full schema in [`supabase/migrations/0001_initial_schema.sql`](supabase/migrations/0001_initial_schema.sql).
+
+| Table | Holds |
+|---|---|
+| `profiles` | 1:1 with `auth.users`; handle, bio, avatar, banner, widget layout, public flag |
+| `entries` | the library — PK `(user_id, media_id)`, status, progress, volumes, score, note |
+| `rankings` | the global personal top list, one ordering per media kind |
+| `collections` | name, description, cover, banner, tags, privacy, layout |
+| `collection_items` | membership + per-item note + per-collection order |
+| `activity` | append-only event log |
+| `follows` | friend activity; no feed table, no counters |
+
+### Ratings
+
+One column: `entries.score numeric(3,1)`, `0.5–10.0` in `0.5` steps, enforced by a check
+constraint. `Stars` renders it as five stars where one star = 2 points, so a half-star
+click maps exactly onto a half-point score. There is no second scale and no conversion
+anywhere — "5 stars" and "10-point" are the same field viewed two ways.
+
+### Rankings — global *and* per-collection
+
+Deliberately independent of score, which is the whole point: a shelf of 10/10s still has
+a #1.
+
+Both use a **fractional index** (`position double precision`). Dropping a row between two
+neighbours writes the midpoint `(prev + next) / 2` — one row updated, not the whole list
+renumbered. Display rank comes from `row_number()`, so it always reads 1..n even though
+stored positions are sparse. A normalization pass reindexes when gaps get too small for
+float precision.
+
+This matters more than it sounds: with contiguous integer ranks, dragging item #90 to #1
+in a top-100 is 90 row updates and 90 outbox ops. Here it's one.
+
+### The activity log is the source of truth for history
+
+Nothing else stores history. The dashboard timeline, per-media "your history", weekly
+stats, the rating-change feed, the profile activity widget and collection activity are
+**all selectors over this one table**. They cannot disagree with each other, and a new kind
+of history view is a selector, not a schema change. Every event carries `payload.from`,
+which is what makes the Undo affordance in toasts possible.
+
+---
+
+## Auth & sharing
+
+Supabase Auth with row-level security keyed to `auth.uid()`. Every table has RLS on.
+
+The rule: **you can always read and write your own rows; others read yours only where you
+made them public.** Profile-level (`profiles.is_public`) governs the library and activity;
+collection-level (`collections.privacy`) governs collections independently, so you can keep
+a private profile and still share one collection by link.
+
+`unlisted` is readable by anyone holding the link but excluded from listing queries — the
+distinction is enforced client-side in *which query runs*, not in RLS, because "hard to
+find" is a product behaviour and "not allowed" is a security one. Only `private` is a
+security boundary.
+
+`profile_is_public()` is `SECURITY DEFINER` specifically so that policies on `profiles` can
+call it without re-entering `profiles`' own RLS, which would recurse infinitely.
+
+---
+
+## World A: the AniList client
+
+`src/data/anilist/client.ts` is a small hand-rolled GraphQL client rather than Apollo/urql
+— the app issues about eight distinct queries and needs precise control over the rate
+limit, which is far less code than configuring a full client.
+
+- **Token-bucket limiter.** AniList allows 90 req/min; the bucket is sized at 80 with a 60s
+  refill for headroom, and requests queue rather than fail.
+- **Respects `Retry-After`.** A 429 parks the whole queue for the advertised duration.
+- **In-flight de-duplication.** Identical `(query, variables)` pairs share one promise, so
+  ten cards mounting with the same media id issue one request.
+- **Normalized output.** Raw AniList shapes stop at `normalize.ts`; components only ever
+  see `Media`, `Character`, `StaffMember`.
+
+Caching: `staleTime` 24h (metadata doesn't change mid-session), `gcTime` 7 days, persisted
+to `localStorage` behind a version key that busts on schema change. Media detail queries
+prefetch on card hover, so opening a media page is instant.
+
+### Light novels
+
+AniList files them under `MANGA` with `format: NOVEL`. `resolveKind()` maps a raw media
+back to `anime | manga | novel` for the library's three-way split, and volume tracking is
+enabled from that same resolved kind.
+
+---
+
+## Artwork-driven accent
+
+`lib/accent.ts` takes `coverImage.color` (a hex AniList computes server-side), converts to
+HSL, clamps lightness and saturation into a theme-appropriate band, and returns a value
+guaranteed to satisfy contrast against the current surfaces. The result is written to
+`--art-accent` on the media page root; descendants use `var(--art-accent)` with no props.
+
+A deliberate rejection of client-side pixel extraction (canvas + k-means): that needs
+CORS-enabled image loads, costs main-thread time on every card, and produces a *worse*
+answer than the one AniList already computed.
+
+---
+
+## Routing
+
+`react-router` v7 declarative, wrapped in one `AppLayout`:
+
+```
+/                       Dashboard
+/library                Library        ?kind=anime&status=current&view=grid
+/media/:id              Media page
+/collections            Collections index
+/collections/:id        Collection detail
+/discover               Discover       ?q=
+/profile                Your profile
+/u/:handle              Someone else's public profile
+/settings               Settings + sync status
+/auth                   Sign in / sign up
+```
+
+Filter state lives in the URL query string, not component state, so any library view is
+linkable and survives reload and back-navigation.
+
+---
+
+## Project layout
+
+```
+src/
+  app/            router, providers, AppLayout, NavRail, TopBar, CommandPalette
+  design/         tokens.css + every generic primitive (no domain knowledge)
+  data/
+    anilist/      client · queries · normalize · hooks · types
+    supabase/     client · types · auth · repositories
+    sync/         outbox · flush · realtime · conflict
+    store/        index · entries · collections · rankings · activity · profile · prefs
+    selectors/    stats, activity grouping, recommendations, affinity
+  features/
+    dashboard/  library/  media/  collections/  discover/  profile/  tracking/
+  lib/            accent, dates, format, cn, ids
+supabase/
+  migrations/     versioned SQL — schema, constraints, RLS
+```
+
+`design/` never imports from `features/`. `features/` never imports another feature's
+internals — shared pieces move to `design/` or `features/tracking/` (the quick-action
+surface every page reuses). Repositories in `data/supabase/` are the only files that know
+SQL table names.
+
+---
+
+## Performance
+
+- Route-level `lazy()` splitting; media page and collection detail are the heavy chunks.
+- Long grids use `content-visibility: auto` with `contain-intrinsic-size` rather than a
+  virtualiser — most of the win, none of the scroll-restoration bugs.
+- Cover images are `loading="lazy"`, `decoding="async"`, aspect-locked to prevent layout
+  shift, and blur up from the artwork colour.
+- Selectors memoized with `useShallow`; the in-memory activity window is capped so derived
+  stats stay bounded regardless of how large the table grows.
+- Framer Motion's `LayoutGroup` drives the segmented-control thumb and shelf transitions on
+  the compositor.
