@@ -103,16 +103,6 @@
   --art-accent: var(--accent);
   --art-accent-quiet: var(--accent-quiet);
 
-  /* Fraunces' character axes, named once so every display size agrees.
-     SOFT rounds the terminals; WONK swaps in the drawn alternates — the
-     splayed `g`, the curled `y`. They are the reason this face is here: they
-     are what make a heading look drawn rather than set, which is the thing a
-     grotesk UI font structurally cannot do no matter how it is tuned.
-     `opsz` is set per size: a high optical size is a tighter, more dramatic
-     cut, which a 4rem headline wants and a 1.25rem one does not. */
-  --wonk-hero: 'SOFT' 45, 'WONK' 1, 'opsz' 144;
-  --wonk-display: 'SOFT' 40, 'WONK' 1, 'opsz' 72;
-  --wonk-title: 'SOFT' 32, 'WONK' 0, 'opsz' 24;
 }
 
 [data-theme='dark'] {
@@ -228,28 +218,24 @@
   --color-score-0-ink: var(--score-0-ink);
 
   /* ---- type -------------------------------------------------------------
-     Three voices, and the split is by *job*, not by size:
+     One family, everywhere: Creato Display.
 
-       display  Fraunces — a warm old-style serif with optical-size, SOFT and
-                WONK axes. Anything you are meant to feel rather than read:
-                page headlines, media titles, the big numerals. Its wonk
-                alternates give the product an actual drawn character, which
-                is the thing a grotesk UI face structurally cannot have.
-       sans     Plus Jakarta Sans — geometric humanist, open apertures, a
-                friendlier `a`/`g` than the Inter/system default. Everything
-                you read: body copy, labels, controls.
-       mono     IBM Plex Mono — the catalog voice. Slab-ish, slightly
-                mechanical, and warm rather than sterile.
+     `--font-display`, `--font-sans` and `--font-mono` all resolve to it, so
+     the three variables are now three *names for the same voice* rather than
+     three voices. They are kept as separate tokens on purpose — every call
+     site in the app already asks for the one that matches its job, and
+     collapsing them into a single token would mean editing two hundred
+     places to ever pull them apart again.
 
-     The pairing is the personality. Hierarchy no longer has to be carried by
-     weight and tracking alone, which is exactly why the old single-family
-     stack read as generic no matter how it was tuned. */
-  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
-  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+     Medium (500) is the base weight the whole product runs on. Hierarchy is
+     carried by weight and size within the family: 500 for text, 700 for
+     headings, 800 for the two hero sizes. */
+  --font-display: 'Creato Display', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Creato Display', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Creato Display', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
 
-  /* The catalog label: mono, small, wide, uppercase. Appears on every page. */
+  /* The catalog label: small, wide, uppercase. Appears on every page. */
   --text-micro: 0.65625rem;
   --text-micro--line-height: 1.2;
   --text-micro--letter-spacing: 0.14em;
@@ -268,28 +254,30 @@
   --text-title--line-height: 1.35;
   --text-title--letter-spacing: -0.011em;
 
-  /* Display sizes are set in the serif, so the tracking is looser than the old
-     grotesk scale wanted: a serif tightened to -0.034em collides its own
-     serifs and reads as a compression artifact rather than as confidence. */
+  /* Display sizes are back in the sans, so the tracking tightens again: a
+     geometric face at 4rem set at its default spacing reads as loose and
+     unresolved. Weights are 700/800 — the family ships no 600, and asking for
+     one with `font-synthesis-weight: none` in force just snaps to 700 anyway,
+     so the scale says what it means. */
   --text-display-sm: 1.25rem;
   --text-display-sm--line-height: 1.24;
-  --text-display-sm--letter-spacing: -0.012em;
-  --text-display-sm--font-weight: 600;
+  --text-display-sm--letter-spacing: -0.014em;
+  --text-display-sm--font-weight: 700;
 
   --text-display-md: 1.75rem;
   --text-display-md--line-height: 1.14;
-  --text-display-md--letter-spacing: -0.016em;
-  --text-display-md--font-weight: 600;
+  --text-display-md--letter-spacing: -0.02em;
+  --text-display-md--font-weight: 700;
 
   --text-display-lg: 2.625rem;
   --text-display-lg--line-height: 1.06;
-  --text-display-lg--letter-spacing: -0.02em;
-  --text-display-lg--font-weight: 600;
+  --text-display-lg--letter-spacing: -0.026em;
+  --text-display-lg--font-weight: 800;
 
   --text-display-xl: 4rem;
   --text-display-xl--line-height: 0.96;
-  --text-display-xl--letter-spacing: -0.024em;
-  --text-display-xl--font-weight: 600;
+  --text-display-xl--letter-spacing: -0.032em;
+  --text-display-xl--font-weight: 800;
 
   /* ---- radius -----------------------------------------------------------
      Deliberate variety. Artwork is nearly square-cornered so it reads as a

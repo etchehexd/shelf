@@ -1,0 +1,51 @@
+/* ---------------------------------------------------------------------------
+ * Creato Display — the one family in the product.
+ *
+ * Self-hosted rather than pulled from a CDN: it is the first paint on every
+ * screen, and a third-party connection in front of that is a render-blocking
+ * round trip to somebody else's uptime.
+ *
+ * Four weights, converted from the supplied OTFs to WOFF2 (~19kB each, down
+ * from ~47kB). Regular and Medium carry text, Bold and ExtraBold carry
+ * headings. The Thin, Light, Black and italic cuts ship with the family but
+ * are not used anywhere in the product, so they are not loaded — an unused
+ * weight is pure download.
+ *
+ * `font-display: swap` on all of them. The alternative, `block`, hides text
+ * for up to three seconds while the file lands; on a local-first app whose
+ * whole point is that the library renders instantly, that is the wrong trade.
+ *
+ * Licensed under the SIL Open Font License — see LICENSE.txt beside the files.
+ * ------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Creato Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/CreatoDisplay-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Creato Display';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/CreatoDisplay-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Creato Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/CreatoDisplay-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Creato Display';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('../assets/fonts/CreatoDisplay-ExtraBold.woff2') format('woff2');
+}
