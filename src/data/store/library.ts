@@ -35,9 +35,11 @@ interface LibraryState {
   setStatus: (mediaId: number, status: EntryStatus, total?: number | null) => void
   setScore: (mediaId: number, score: number | null) => void
   setNote: (mediaId: number, note: string | null) => void
-  toggleFavourite: (mediaId: number) => void
+  toggleFavorite: (mediaId: number) => void
   addRepeat: (mediaId: number) => void
   restoreEntry: (entry: LibraryEntry) => void
+  /** First-run import. Returns how many were new. */
+  importEntries: (incoming: LibraryEntry[]) => number
 
   /* rankings */
   moveRank: (kind: MediaKind, mediaId: number, toIndex: number) => void
@@ -62,17 +64,40 @@ interface LibraryState {
   reset: () => void
 }
 
+/**
+ * A profile with nothing in it.
+ *
+ * Genuinely nothing: no handle, no display name, no bio, no genres. The app
+ * used to ship a `reader` / "Reader" identity as the starting point, which
+ * meant every new account was silently pre-populated with a persona it never
+ * chose and then had to notice and correct. An empty room is honest; a room
+ * furnished by someone else is not.
+ *
+ * Every surface that renders identity handles the blank case explicitly —
+ * `nameOf()` below is the single place that decides what "no name yet" looks
+ * like, so there is exactly one answer rather than six.
+ */
 const emptyProfile: Profile = {
-  handle: 'reader',
-  displayName: 'Reader',
+  handle: '',
+  displayName: '',
   bio: null,
   avatarUrl: null,
   bannerUrl: null,
   accent: null,
-  isPublic: true,
+  isPublic: false,
   widgets: DEFAULT_WIDGETS,
-  favouriteGenres: [],
-  updatedAt: Date.now(),
+  favoriteGenres: [],
+  updatedAt: 0,
+}
+
+/** Whether this profile has been claimed by a person yet. */
+export function hasIdentity(profile: Profile): boolean {
+  return profile.displayName.trim().length > 0 || profile.handle.trim().length > 0
+}
+
+/** What to call someone who hasn't named themselves. Used in chrome only. */
+export function nameOf(profile: Profile): string {
+  return profile.displayName.trim() || profile.handle.trim() || 'You'
 }
 
 /* -------------------------------------------------------------------------- */
@@ -92,7 +117,7 @@ const entryOp = (e: LibraryEntry) =>
       score: e.score,
       repeats: e.repeats,
       note: e.note,
-      favourite: e.favourite,
+      favorite: e.favorite,
       started_at: e.startedAt,
       finished_at: e.finishedAt,
       device_id: deviceId(),
@@ -234,7 +259,7 @@ export const useLibrary = create<LibraryState>()(
             score: null,
             repeats: 0,
             note: null,
-            favourite: false,
+            favorite: false,
             startedAt: status === 'current' ? todayISO() : null,
             finishedAt: null,
             createdAt: now,
@@ -273,6 +298,29 @@ export const useLibrary = create<LibraryState>()(
         restoreEntry: (entry) => {
           set((s) => ({ entries: { ...s.entries, [entry.mediaId]: entry } }))
           entryOp(entry)
+        },
+
+        /**
+         * Bulk insert from an import.
+         *
+         * Anything already on the shelf wins — an import must never quietly
+         * overwrite progress you made here. Deliberately writes no activity:
+         * three hundred "added" lines would bury the diary on day one, and an
+         * import isn't something you did, it's something you brought.
+         */
+        importEntries: (incoming) => {
+          const existing = get().entries
+          const fresh = incoming.filter((e) => !existing[e.mediaId])
+          if (fresh.length === 0) return 0
+
+          const merged = { ...existing }
+          for (const entry of fresh) {
+            merged[entry.mediaId] = entry
+            entryOp(entry)
+          }
+
+          set({ entries: merged })
+          return fresh.length
         },
 
         /**
@@ -352,10 +400,16 @@ export const useLibrary = create<LibraryState>()(
 
         setScore: (mediaId, score) => {
           const entry = get().entries[mediaId]
-          if (!entry || entry.score === score) return
+          if (!entry) return
 
-          patchEntry(mediaId, { score })
-          log('score', { mediaId, kind: entry.kind, payload: { from: entry.score, to: score } })
+          // The scale is whole numbers 1–10 and nothing else. Clamping here
+          // rather than at each call site means a stray 0, a 7.5 or an 11 from
+          // an import can never reach the store.
+          const next = score == null ? null : Math.min(10, Math.max(1, Math.round(score)))
+          if (entry.score === next) return
+
+          patchEntry(mediaId, { score: next })
+          log('score', { mediaId, kind: entry.kind, payload: { from: entry.score, to: next } })
         },
 
         setNote: (mediaId, note) => {
@@ -366,10 +420,10 @@ export const useLibrary = create<LibraryState>()(
           log('note', { mediaId, kind: entry.kind, payload: { from: entry.note, to: note } })
         },
 
-        toggleFavourite: (mediaId) => {
+        toggleFavorite: (mediaId) => {
           const entry = get().entries[mediaId]
           if (!entry) return
-          patchEntry(mediaId, { favourite: !entry.favourite })
+          patchEntry(mediaId, { favorite: !entry.favorite })
         },
 
         addRepeat: (mediaId) => {
@@ -382,7 +436,7 @@ export const useLibrary = create<LibraryState>()(
 
         /**
          * Move a title to a position in the global top list. One row is written
-         * (the midpoint between its new neighbours), not the whole list.
+         * (the midpoint between its new neighbors), not the whole list.
          */
         moveRank: (kind, mediaId, toIndex) => {
           const ordered = rankingsFor(kind).filter((r) => r.mediaId !== mediaId)
@@ -583,7 +637,7 @@ export const useLibrary = create<LibraryState>()(
               accent: next.accent,
               is_public: next.isPublic,
               widgets: next.widgets,
-              favourite_genres: next.favouriteGenres,
+              favorite_genres: next.favoriteGenres,
             },
             updatedAt: next.updatedAt,
           })
@@ -608,7 +662,43 @@ export const useLibrary = create<LibraryState>()(
     },
     {
       name: 'shelf.library',
-      version: 1,
+      version: 3,
+      /**
+       * v1 → v2: two rating rules changed.
+       *
+       * The scale went from 0.5–10 in half steps to whole numbers 1–10 —
+       * halves round *up*, because someone who gave a show an 8.5 meant
+       * "better than an 8". And a score is now only valid on a completed
+       * title, so a stray score on something in progress is dropped rather
+       * than left to fail the server's check constraint on the next sync.
+       *
+       * v2 → v3: **a deliberate, total wipe of the local store.**
+       *
+       * Two things forced it. The rating and identity fields were renamed
+       * (`favourite` → `favorite`, `favouriteGenres` → `favoriteGenres`) to
+       * match the column names the sync layer now writes, and — the actual
+       * reason — the product used to seed every install with a `reader` /
+       * "Reader" profile. Anything carrying that identity is not a user's data
+       * with a wrong name attached; it is data that accumulated *under* a
+       * persona nobody chose, and the requirement is that the next sign-in
+       * starts genuinely empty.
+       *
+       * So this does not translate the old state. It discards it. Entries,
+       * rankings, collections, notes, history and profile all go, locally and
+       * irreversibly, exactly once, on the upgrade to v3.
+       *
+       * Remote rows are untouched: signing in re-pulls whatever the server
+       * still holds, which is what makes this safe to run on an account that
+       * has real data behind it and destructive only for purely local state.
+       */
+      migrate: () => ({
+        entries: {},
+        rankings: [],
+        collections: [],
+        collectionItems: [],
+        activity: [],
+        profile: emptyProfile,
+      }),
       partialize: (s) => ({
         entries: s.entries,
         rankings: s.rankings,

@@ -14,6 +14,7 @@ import { PageFallback } from './PageFallback'
 // chunks — both pull in dnd-kit and the full detail query.
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
 const LibraryPage = lazy(() => import('@/features/library/LibraryPage'))
+const RankingsPage = lazy(() => import('@/features/rankings/RankingsPage'))
 const MediaPage = lazy(() => import('@/features/media/MediaPage'))
 const CollectionsPage = lazy(() => import('@/features/collections/CollectionsPage'))
 const CollectionDetailPage = lazy(() => import('@/features/collections/CollectionDetailPage'))
@@ -44,6 +45,14 @@ export function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <LibraryPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="rankings"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <RankingsPage />
                   </Suspense>
                 }
               />

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Minus, Plus } from 'lucide-react'
+import { Check, Minus, Plus } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useHoldRepeat, usePrefersReducedMotion } from './hooks'
 import { IconButton } from './Button'
@@ -8,38 +8,90 @@ import { IconButton } from './Button'
 export interface ProgressBarProps {
   value: number
   max: number | null
-  /** Use the page's artwork accent instead of brand amber. */
+  /** Use the page's artwork accent instead of brand ember. */
   art?: boolean
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
+  /** Force the continuous bar even when a tick track would fit. */
+  continuous?: boolean
   className?: string
 }
 
-export function ProgressBar({ value, max, art, size = 'sm', className }: ProgressBarProps) {
-  // An unknown total (ongoing series) still deserves a bar, so fall back to a
-  // gentle indeterminate-looking fill rather than showing nothing.
+/** Above this, individual ticks stop being readable and become hatching. */
+const MAX_TICKS = 50
+
+const TRACK_H = { sm: 'h-1', md: 'h-1.5', lg: 'h-2' } as const
+
+/**
+ * The progress track.
+ *
+ * When a title has a known, countable length — a 12-episode season, a 24-volume
+ * run — the track is drawn as *one tick per episode*, so you can see "three
+ * left" without reading a number. Long runs fall back to a continuous bar,
+ * because 400 chapters of hatching is just texture.
+ *
+ * This is the app's own progress control, and it appears everywhere progress
+ * does: cards, rows, the media page, collections.
+ */
+export function ProgressBar({
+  value,
+  max,
+  art,
+  size = 'sm',
+  continuous,
+  className,
+}: ProgressBarProps) {
+  const ticked = !continuous && max != null && max > 1 && max <= MAX_TICKS
+  const fill = art ? 'bg-art' : 'bg-accent'
+
+  const common = {
+    role: 'progressbar' as const,
+    'aria-valuenow': value,
+    'aria-valuemin': 0,
+    'aria-valuemax': max ?? undefined,
+  }
+
+  if (ticked) {
+    return (
+      <div className={cn('flex w-full items-stretch gap-[2px]', TRACK_H[size], className)} {...common}>
+        {Array.from({ length: max! }, (_, i) => {
+          const done = i < value
+          return (
+            <motion.span
+              key={i}
+              initial={false}
+              animate={{ opacity: done ? 1 : 0.22 }}
+              transition={{ duration: 0.22, delay: done ? Math.min(i, 24) * 0.012 : 0 }}
+              className={cn(
+                'min-w-[3px] flex-1 rounded-[1px]',
+                done ? fill : 'bg-ink-3',
+              )}
+            />
+          )
+        })}
+      </div>
+    )
+  }
+
+  // An unknown total (an ongoing series) still deserves a bar, so fall back to
+  // a small standing fill rather than showing nothing.
   const pct = max && max > 0 ? Math.min(100, (value / max) * 100) : value > 0 ? 8 : 0
 
   return (
     <div
-      className={cn(
-        'w-full overflow-hidden rounded-full bg-surface-3',
-        size === 'sm' ? 'h-1' : 'h-1.5',
-        className,
-      )}
-      role="progressbar"
-      aria-valuenow={value}
-      aria-valuemin={0}
-      aria-valuemax={max ?? undefined}
+      className={cn('w-full overflow-hidden rounded-full bg-surface-3', TRACK_H[size], className)}
+      {...common}
     >
       <motion.div
-        className={cn('h-full rounded-full', art ? 'bg-art' : 'bg-accent')}
+        className={cn('h-full rounded-full', fill)}
         initial={false}
         animate={{ width: `${pct}%` }}
-        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 34 }}
       />
     </div>
   )
 }
+
+/* -------------------------------------------------------------------------- */
 
 export interface ProgressStepperProps {
   value: number
@@ -48,7 +100,7 @@ export interface ProgressStepperProps {
   /** "Episode" / "Chapter" / "Volume" */
   unit: string
   art?: boolean
-  size?: 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
   className?: string
 }
 
@@ -59,6 +111,8 @@ export interface ProgressStepperProps {
  *  - click the number to type an exact value
  *  - the number springs up on increment and down on decrement, so the change is
  *    legible without reading it
+ *  - reaching the end swaps the + for a tick, which is the moment a title
+ *    finishes and deserves to feel like one
  *
  * Writes are local-first (see ARCHITECTURE.md), so there is no pending state to
  * design around: the animation *is* the latency budget.
@@ -107,23 +161,31 @@ export function ProgressStepper({
   }
 
   const big = size === 'lg'
+  const btn = size === 'sm' ? 'sm' : big ? 'md' : 'sm'
 
   return (
-    <div className={cn('inline-flex items-center gap-1', className)}>
+    <div
+      className={cn(
+        'inline-flex items-center rounded-full border border-line bg-surface-2/70 p-0.5',
+        'transition-colors duration-200 hover:border-line-strong',
+        className,
+      )}
+    >
       <IconButton
         label={`One fewer ${unit.toLowerCase()}`}
         icon={<Minus className="size-4" />}
-        variant="quiet"
-        size={big ? 'md' : 'sm'}
+        variant="ghost"
+        size={btn}
         disabled={atMin}
         onClick={() => step(-1)}
+        className="rounded-full"
         {...dec}
       />
 
       <div
         className={cn(
-          'flex items-baseline justify-center gap-1 px-2 select-none',
-          big ? 'min-w-28' : 'min-w-20',
+          'flex items-baseline justify-center gap-1 select-none',
+          big ? 'min-w-24 px-2' : size === 'sm' ? 'min-w-14 px-1' : 'min-w-18 px-1.5',
         )}
       >
         {editing ? (
@@ -140,7 +202,7 @@ export function ProgressStepper({
             }}
             aria-label={`${unit} number`}
             className={cn(
-              'tnum w-full bg-transparent text-center font-semibold outline-none',
+              'font-mono-num w-full bg-transparent text-center font-semibold outline-none',
               big ? 'text-display-md' : 'text-title',
             )}
           />
@@ -157,33 +219,37 @@ export function ProgressStepper({
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
                 key={value}
-                initial={reduced ? false : { y: direction * 10, opacity: 0 }}
+                initial={reduced ? false : { y: direction * 9, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                exit={reduced ? undefined : { y: direction * -10, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 34 }}
+                exit={reduced ? undefined : { y: direction * -9, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 560, damping: 32 }}
                 className={cn(
-                  'tnum font-semibold',
-                  big ? 'text-display-md' : 'text-title',
+                  'font-mono-num font-semibold',
+                  big ? 'text-display-md' : size === 'sm' ? 'text-label' : 'text-title',
                   art ? 'text-art' : 'text-ink',
                 )}
               >
                 {value}
               </motion.span>
             </AnimatePresence>
-            <span className={cn('tnum text-ink-3', big ? 'text-label' : 'text-meta')}>
-              / {max ?? '?'}
+            <span
+              className={cn('font-mono-num text-ink-3', big ? 'text-label' : 'text-micro')}
+              aria-hidden
+            >
+              /{max ?? '?'}
             </span>
           </button>
         )}
       </div>
 
       <IconButton
-        label={`One more ${unit.toLowerCase()}`}
-        icon={<Plus className="size-4" />}
-        variant={art ? 'art' : 'primary'}
-        size={big ? 'md' : 'sm'}
+        label={atMax ? 'Finished' : `One more ${unit.toLowerCase()}`}
+        icon={atMax ? <Check className="size-4" /> : <Plus className="size-4" />}
+        variant={atMax ? 'ghost' : art ? 'art' : 'primary'}
+        size={btn}
         disabled={atMax}
         onClick={() => step(1)}
+        className={cn('rounded-full', atMax && 'text-watching opacity-100')}
         {...inc}
       />
     </div>

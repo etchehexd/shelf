@@ -1,8 +1,13 @@
 /** Small formatting helpers. Deliberately dependency-free. */
 
+/**
+ * Scores are whole numbers, 1–10. They print as whole numbers everywhere —
+ * "8", never "8.0" — because the scale has no fractions to disambiguate.
+ * Averages are the one place a decimal is meaningful, so they round to one.
+ */
 export function scoreText(score: number | null | undefined): string {
   if (score == null) return '—'
-  return Number.isInteger(score) ? `${score}.0` : score.toFixed(1)
+  return Number.isInteger(score) ? String(score) : score.toFixed(1)
 }
 
 export function ordinal(n: number): string {

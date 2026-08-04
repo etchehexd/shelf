@@ -1,9 +1,9 @@
 /**
- * Artwork-driven accent colour.
+ * Artwork-driven accent color.
  *
  * AniList hands us a dominant hex per cover (`coverImage.color`). Raw, it is
- * unusable as UI colour — it ranges from near-white to near-black and from
- * grey to fluorescent. We clamp lightness and saturation into a band that is
+ * unusable as UI color — it ranges from near-white to near-black and from
+ * gray to fluorescent. We clamp lightness and saturation into a band that is
  * guaranteed legible against the current theme's surfaces, while preserving
  * the hue so each title keeps its identity.
  *
@@ -61,14 +61,14 @@ const BANDS: Record<Theme, { l: [number, number]; s: [number, number] }> = {
  * @param hex   AniList `coverImage.color`, or any hex. Null-safe.
  * @param theme which band to clamp into.
  * @returns an `hsl()` string, or null when there is nothing usable — callers
- *          then fall back to the brand accent rather than inventing a colour.
+ *          then fall back to the brand accent rather than inventing a color.
  */
 export function artAccent(hex: string | null | undefined, theme: Theme): string | null {
   if (!hex) return null
   const hsl = hexToHsl(hex)
   if (!hsl) return null
 
-  // A near-grey cover has no hue worth borrowing; let the brand accent win.
+  // A near-gray cover has no hue worth borrowing; let the brand accent win.
   if (hsl.s < 8) return null
 
   const band = BANDS[theme]
@@ -90,7 +90,7 @@ export function artAccentQuiet(hex: string | null | undefined, theme: Theme): st
 }
 
 /**
- * A very dark, desaturated version of the cover colour, used as the base of
+ * A very dark, desaturated version of the cover color, used as the base of
  * media-page banner scrims so the fade reads as part of the artwork.
  */
 export function artScrim(hex: string | null | undefined, theme: Theme): string | null {

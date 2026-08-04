@@ -36,7 +36,7 @@ export function CollectionEditor({
   const [layout, setLayout] = useState<CollectionLayout>('grid')
   const [tags, setTags] = useState('')
 
-  // Reset whenever the dialog opens so a cancelled edit doesn't leak into the
+  // Reset whenever the dialog opens so a canceled edit doesn't leak into the
   // next one.
   useEffect(() => {
     if (!open) return
@@ -80,7 +80,7 @@ export function CollectionEditor({
       open={open}
       onClose={onClose}
       title={collection ? 'Edit collection' : 'New collection'}
-      description="Collections aren't folders — they're how your taste gets a shape."
+      
       footer={
         <>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -100,7 +100,7 @@ export function CollectionEditor({
               data-autofocus
               value={name}
               maxLength={80}
-              placeholder="Shows that changed my life"
+              
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
             />
@@ -118,7 +118,7 @@ export function CollectionEditor({
               value={description}
               maxLength={1000}
               rows={3}
-              placeholder="For when the day has been too long."
+              
               onChange={(e) => setDescription(e.target.value)}
             />
           )}
@@ -129,7 +129,7 @@ export function CollectionEditor({
             <Input
               {...props}
               value={tags}
-              placeholder="cozy, rewatch, autumn"
+              placeholder="comfort, rewatch"
               onChange={(e) => setTags(e.target.value)}
             />
           )}

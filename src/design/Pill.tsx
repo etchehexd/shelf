@@ -36,7 +36,7 @@ const TEXT: Record<Tone, string> = {
 export interface PillProps extends HTMLAttributes<HTMLSpanElement> {
   tone?: Tone
   /**
-   * Status is never communicated by colour alone — the dot always sits beside
+   * Status is never communicated by color alone — the dot always sits beside
    * a text label. See DESIGN.md §Accessibility.
    */
   dot?: boolean
@@ -56,8 +56,8 @@ export function Pill({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-sm border border-line bg-surface-2 font-medium whitespace-nowrap',
-        size === 'sm' ? 'h-6 px-2 text-micro' : 'h-7 px-2.5 text-meta',
+        'inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 font-medium whitespace-nowrap',
+        size === 'sm' ? 'h-6 px-2.5 text-[0.6875rem]' : 'h-7 px-3 text-meta',
         tone === 'neutral' ? 'text-ink-2' : TEXT[tone],
         className,
       )}
@@ -80,10 +80,10 @@ export function Chip({
     <button
       type="button"
       className={cn(
-        'inline-flex h-7 items-center rounded-sm border px-2.5 text-meta font-medium whitespace-nowrap',
-        'transition-colors duration-[110ms]',
+        'inline-flex h-7.5 items-center rounded-full border px-3 text-meta font-medium whitespace-nowrap',
+        'transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.97]',
         active
-          ? 'border-accent bg-accent-quiet text-accent'
+          ? 'border-accent-line bg-accent text-accent-ink shadow-xs'
           : 'border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink',
         className,
       )}

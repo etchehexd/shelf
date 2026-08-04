@@ -1,12 +1,11 @@
 import { useCallback, useMemo } from 'react'
 import { useLibrary } from '@/data/store/library'
 import { useEntry } from '@/data/store/selectors'
-import { statusLabel, type EntryStatus } from '@/data/store/types'
+import { canRate, statusLabel, type EntryStatus } from '@/data/store/types'
 import { totalUnits, unitName, type MediaKind, type MediaSummary } from '@/data/anilist/types'
 import { displayTitle } from '@/data/anilist/normalize'
 import { usePrefs } from '@/data/store/prefs'
-import { toast } from '@/design'
-import { scoreText } from '@/lib/format'
+import { ratingWord, toast } from '@/design'
 
 /**
  * Binds the store's media-agnostic actions to one title.
@@ -27,7 +26,7 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
   const setStatusAction = useLibrary((s) => s.setStatus)
   const setScoreAction = useLibrary((s) => s.setScore)
   const setNoteAction = useLibrary((s) => s.setNote)
-  const toggleFavourite = useLibrary((s) => s.toggleFavourite)
+  const toggleFavorite = useLibrary((s) => s.toggleFavorite)
   const addRepeat = useLibrary((s) => s.addRepeat)
 
   const total = media ? totalUnits(media) : null
@@ -77,12 +76,23 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
     [media, total, title, kind, ensureEntry, setStatusAction],
   )
 
+  /**
+   * Rating implies a verdict on the whole work, so it also *is* the act of
+   * finishing it: scoring something that isn't marked completed completes it.
+   * The UI only offers the control on completed titles (see `canRate`), so in
+   * practice this branch only catches the keyboard shortcut and the palette.
+   */
   const setScore = useCallback(
     (score: number | null) => {
       if (!media) return
       ensureEntry('completed')
       setScoreAction(media.id, score)
-      toast({ message: score == null ? `Rating cleared` : `${title} rated ${scoreText(score)}` })
+      toast({
+        message:
+          score == null
+            ? 'Rating cleared'
+            : `${title} — ${score}/10, ${ratingWord(score).toLowerCase()}`,
+      })
     },
     [media, title, ensureEntry, setScoreAction],
   )
@@ -120,6 +130,8 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
     () => ({
       entry,
       inLibrary: Boolean(entry),
+      /** Whether the rating control should be offered at all. */
+      canRate: canRate(entry?.status),
       total,
       unit: unitName(kind),
       title,
@@ -131,7 +143,7 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
       setStatus,
       setScore,
       setNote,
-      toggleFavourite: () => media && toggleFavourite(media.id),
+      toggleFavorite: () => media && toggleFavorite(media.id),
       addRepeat: () => media && addRepeat(media.id),
     }),
     [
@@ -148,7 +160,7 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
       setStatus,
       setScore,
       setNote,
-      toggleFavourite,
+      toggleFavorite,
       addRepeat,
     ],
   )

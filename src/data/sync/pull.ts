@@ -103,7 +103,7 @@ function toEntry(row: EntryRow): LibraryEntry {
     score: row.score == null ? null : Number(row.score),
     repeats: row.repeats,
     note: row.note,
-    favourite: row.favourite,
+    favorite: row.favorite,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: Date.parse(row.created_at) || Date.now(),
@@ -162,7 +162,7 @@ function toProfile(row: ProfileRow) {
     accent: row.accent,
     isPublic: row.is_public,
     widgets: normalizeWidgets(row.widgets),
-    favouriteGenres: row.favourite_genres ?? [],
+    favoriteGenres: row.favorite_genres ?? [],
     updatedAt: Date.parse(row.updated_at) || Date.now(),
   }
 }

@@ -57,7 +57,7 @@ export function uniqueSlug(base: string, taken: Iterable<string>): string {
 const STEP = 1024
 
 /**
- * Fractional index between two neighbours. See ARCHITECTURE.md — dragging a row
+ * Fractional index between two neighbors. See ARCHITECTURE.md — dragging a row
  * writes one midpoint rather than renumbering the whole list.
  *
  * `prev`/`next` are the positions either side of the drop target; pass null for

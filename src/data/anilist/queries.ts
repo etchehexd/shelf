@@ -23,6 +23,9 @@ export const MEDIA_CARD_FRAGMENT = `
     bannerImage
     title { romaji english native }
     coverImage { extraLarge large color }
+    # Small enough to ride along on the 50-at-a-time library hydration, and it
+    # is what lets the dashboard say 'episode 8 lands on Friday'.
+    nextAiringEpisode { episode airingAt timeUntilAiring }
   }
 `
 
@@ -35,14 +38,17 @@ export const MEDIA_FULL_FRAGMENT = `
     source(version: 3)
     countryOfOrigin
     popularity
-    favourites
+    # Aliased on the wire: the upstream schema spells this the British way and
+    # the app spells everything the American way. Renaming it here is the one
+    # place the two conventions have to meet, so nothing downstream — the raw
+    # shape, the normalized type, the UI — ever carries the other spelling.
+    favorites: favourites
     meanScore
     siteUrl
     startDate { year month day }
     endDate { year month day }
     studios { edges { isMain node { id name } } }
     tags { id name rank isGeneralSpoiler isMediaSpoiler category }
-    nextAiringEpisode { episode airingAt timeUntilAiring }
     characters(sort: [ROLE, RELEVANCE], perPage: 14) {
       edges {
         role

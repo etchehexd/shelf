@@ -10,17 +10,26 @@ export function statusLabel(status: EntryStatus, kind: MediaKind): string {
   return { completed: 'Completed', planning: 'Planning', paused: 'Paused', dropped: 'Dropped' }[status]
 }
 
+/**
+ * A score is a verdict on the whole work, so it only unlocks once the work is
+ * finished. Every rating affordance in the app is gated on this — there is no
+ * second path to a score.
+ */
+export function canRate(status: EntryStatus | null | undefined): boolean {
+  return status === 'completed'
+}
+
 export interface LibraryEntry {
   mediaId: number
   kind: MediaKind
   status: EntryStatus
   progress: number
   progressVolumes: number
-  /** 0.5 – 10.0 in 0.5 steps. The only rating field in the app. */
+  /** Whole numbers 1–10. The only rating field in the app. */
   score: number | null
   repeats: number
   note: string | null
-  favourite: boolean
+  favorite: boolean
   startedAt: string | null
   finishedAt: string | null
   createdAt: number
@@ -95,14 +104,17 @@ export interface ActivityEvent {
 }
 
 export type WidgetId =
+  | 'obsession'
   | 'top-ranked'
   | 'featured-collections'
   | 'currently'
   | 'statistics'
   | 'rating-distribution'
   | 'genre-affinity'
+  | 'eras'
+  | 'year-in-review'
   | 'recent-activity'
-  | 'favourites'
+  | 'favorites'
 
 export interface WidgetConfig {
   id: WidgetId
@@ -110,25 +122,47 @@ export interface WidgetConfig {
 }
 
 export const DEFAULT_WIDGETS: WidgetConfig[] = [
+  { id: 'obsession', visible: true },
   { id: 'currently', visible: true },
   { id: 'top-ranked', visible: true },
   { id: 'featured-collections', visible: true },
+  { id: 'favorites', visible: true },
   { id: 'statistics', visible: true },
   { id: 'genre-affinity', visible: true },
   { id: 'rating-distribution', visible: true },
+  { id: 'eras', visible: true },
+  { id: 'year-in-review', visible: true },
   { id: 'recent-activity', visible: true },
-  { id: 'favourites', visible: false },
 ]
 
+/** Labels for the arrange screen. Each one names its section, exactly. */
 export const WIDGET_LABEL: Record<WidgetId, string> = {
-  'top-ranked': 'Top ranked',
-  'featured-collections': 'Featured collections',
-  currently: 'Currently watching & reading',
+  obsession: 'Most watched lately',
+  'top-ranked': 'Your ranking',
+  'featured-collections': 'Collections',
+  currently: 'Watching & reading',
   statistics: 'Statistics',
-  'rating-distribution': 'Rating distribution',
-  'genre-affinity': 'Genre affinity',
-  'recent-activity': 'Recent activity',
-  favourites: 'Favourites',
+  'rating-distribution': 'Your scores',
+  'genre-affinity': 'Genres',
+  eras: 'By year',
+  'year-in-review': 'This year',
+  'recent-activity': 'Activity',
+  favorites: 'Favorites',
+}
+
+/**
+ * Widget lists are persisted per profile, so a release that adds a widget has
+ * to fold it into lists written before it existed — otherwise new furniture is
+ * invisible to everyone who already has a room.
+ */
+export function mergeWidgets(saved: WidgetConfig[]): WidgetConfig[] {
+  const known = new Set(DEFAULT_WIDGETS.map((w) => w.id))
+  const seen = new Set(saved.map((w) => w.id))
+
+  return [
+    ...saved.filter((w) => known.has(w.id)),
+    ...DEFAULT_WIDGETS.filter((w) => !seen.has(w.id)),
+  ]
 }
 
 export interface Profile {
@@ -140,6 +174,6 @@ export interface Profile {
   accent: string | null
   isPublic: boolean
   widgets: WidgetConfig[]
-  favouriteGenres: string[]
+  favoriteGenres: string[]
   updatedAt: number
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Check, Cloud, CloudOff, LogOut, Monitor, Moon, RefreshCw, Search, Settings, Sun, TriangleAlert } from 'lucide-react'
+import { Check, Cloud, CloudOff, LogOut, Monitor, Moon, RefreshCw, Search, Settings, Sun, TriangleAlert, User } from 'lucide-react'
 import { Avatar, IconButton, MenuItem, MenuLabel, MenuSeparator, Popover, Tooltip } from '@/design'
-import { useLibrary } from '@/data/store/library'
+import { useLibrary, nameOf } from '@/data/store/library'
 import { usePrefs, type ThemeSetting } from '@/data/store/prefs'
 import { useAuth } from '@/data/supabase/auth'
 import { onSyncStatus, type SyncStatus } from '@/data/sync/engine'
@@ -12,20 +12,20 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const profile = useLibrary((s) => s.profile)
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-canvas/85 backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-(--container-page) items-center gap-3 px-5 md:px-10">
         <button
           type="button"
           onClick={onOpenPalette}
           className={cn(
-            'group flex h-9.5 min-w-0 flex-1 items-center gap-2.5 rounded-md border border-line',
-            'bg-surface-2 px-3 text-left text-label text-ink-3 transition-colors',
-            'hover:border-line-strong hover:text-ink-2 md:max-w-sm',
+            'group flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-line',
+            'bg-surface-2 px-4 text-left text-label text-ink-3 transition-colors',
+            'hover:border-line-strong hover:bg-surface-3/60 hover:text-ink-2 md:max-w-md',
           )}
         >
           <Search className="size-4 shrink-0" aria-hidden />
-          <span className="truncate">Search your library and AniList…</span>
-          <kbd className="ml-auto hidden shrink-0 rounded-sm border border-line bg-surface px-1.5 py-0.5 text-micro text-ink-3 md:block">
+          <span className="truncate">Search</span>
+          <kbd className="ml-auto hidden shrink-0 rounded-[5px] border border-line bg-surface px-1.5 py-0.5 font-mono text-[0.625rem] text-ink-3 md:block">
             ⌘K
           </kbd>
         </button>
@@ -42,7 +42,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
             className="w-56"
             trigger={
               <button type="button" className="ml-1 rounded-full" aria-label="Account menu">
-                <Avatar src={profile.avatarUrl} name={profile.displayName} size="sm" />
+                <Avatar src={profile.avatarUrl} name={nameOf(profile)} size="sm" />
               </button>
             }
           >
@@ -69,12 +69,20 @@ function AccountMenu({ onNavigate }: { onNavigate: () => void }) {
   return (
     <>
       <div className="px-2.5 pt-2 pb-2.5">
-        <p className="truncate text-label font-medium text-ink">{profile.displayName}</p>
+        <p className="truncate text-label font-medium text-ink">
+          {profile.displayName.trim() || (session ? 'Unnamed' : 'Guest')}
+        </p>
         <p className="truncate text-meta text-ink-3">
-          {session?.user.email ?? (enabled ? 'Not signed in' : 'Local library')}
+          {session?.user.email ?? (enabled ? 'Browsing signed out' : 'Local library')}
         </p>
       </div>
       <MenuSeparator />
+
+      {(!enabled || session) && (
+        <MenuItem icon={<User className="size-4" />} onSelect={() => go('/profile')}>
+          Profile
+        </MenuItem>
+      )}
 
       <MenuItem icon={<Settings className="size-4" />} onSelect={() => go('/settings')}>
         Settings

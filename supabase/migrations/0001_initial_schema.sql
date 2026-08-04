@@ -6,11 +6,11 @@
 --  * This database stores ONLY personal data. Canonical media metadata
 --    (titles, art, episode counts, characters) is never copied here — it lives
 --    on AniList and is joined client-side on `media_id`. Copying it would mean
---    owning a stale mirror of someone else's catalogue for no benefit.
+--    owning a stale mirror of someone else's catalog for no benefit.
 --
 --  * Ordering everywhere uses a fractional index (`position double precision`)
 --    rather than a contiguous integer rank. Dragging one row between two
---    neighbours writes ONE row (the midpoint) instead of renumbering the whole
+--    neighbors writes ONE row (the midpoint) instead of renumbering the whole
 --    list. Display rank is derived with row_number(), so it is always 1..n even
 --    though the stored positions are sparse.
 --
@@ -69,16 +69,21 @@ $$;
 create table public.profiles (
   id             uuid primary key references auth.users (id) on delete cascade,
   handle         text not null,
-  display_name   text not null default 'Reader',
+  -- Empty by default, and empty is a legitimate state. A new profile has no
+  -- name because nobody has given it one; seeding 'Reader' here meant every
+  -- account arrived wearing a persona it never chose.
+  display_name   text not null default '',
   bio            text,
   avatar_url     text,
   banner_url     text,
   accent         text,                            -- optional custom theme accent (hex)
-  is_public      boolean not null default true,
+  -- Private until the owner decides otherwise. Publishing someone's library by
+  -- default is not a default anyone would pick for themselves.
+  is_public      boolean not null default false,
   -- Ordered widget layout for the profile page, e.g.
   -- [{"id":"top-ranked","visible":true}, {"id":"stats","visible":true}, ...]
   widgets        jsonb not null default '[]'::jsonb,
-  favourite_genres text[] not null default '{}',
+  favorite_genres text[] not null default '{}',
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
 
@@ -94,6 +99,12 @@ create trigger profiles_touch
 
 -- Create a profile automatically on signup so the app never has to handle a
 -- signed-in user with no profile row.
+--
+-- The row it creates is *empty*. It used to derive a display name from the
+-- email's local part, which is how an account belonging to someone called
+-- "etc@…" ended up permanently introducing itself as "etc". A machine-generated
+-- handle is unavoidable — it is unique, constrained and needed for links — but
+-- it is an identifier, not an identity, and nothing else here is guessed.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -105,10 +116,7 @@ begin
   values (
     new.id,
     'user_' || substr(replace(new.id::text, '-', ''), 1, 12),
-    coalesce(
-      new.raw_user_meta_data ->> 'display_name',
-      split_part(coalesce(new.email, 'reader@shelf'), '@', 1)
-    )
+    ''
   )
   on conflict (id) do nothing;
   return new;
@@ -142,10 +150,10 @@ create table public.entries (
   status           public.entry_status not null default 'planning',
   progress         integer not null default 0,     -- episodes watched / chapters read
   progress_volumes integer not null default 0,     -- manga & light novels only
-  score            numeric(3, 1),                  -- 0.5 .. 10.0 in 0.5 steps
+  score            smallint,                       -- whole numbers, 1 .. 10
   repeats          integer not null default 0,     -- rewatches / rereads
   note             text,                           -- one short reaction, not a review
-  favourite        boolean not null default false,
+  favorite        boolean not null default false,
   started_at       date,
   finished_at      date,
   -- Which browser wrote this row last. Realtime subscribers drop broadcasts
@@ -157,11 +165,13 @@ create table public.entries (
 
   primary key (user_id, media_id),
 
-  -- One rating scale, viewed two ways: 5 stars at 2 points each == 10-point
-  -- scale in half steps. Enforced here so no client can invent a third scale.
-  constraint entries_score_range check (
-    score is null or (score >= 0.5 and score <= 10.0 and (score * 2) = trunc(score * 2))
-  ),
+  -- One rating scale, viewed two ways: a whole number 1-10, drawn as five
+  -- stars worth two points each. Integer-typed so no client can invent a half
+  -- point, range-checked so none can invent a zero or an eleven.
+  constraint entries_score_range check (score is null or score between 1 and 10),
+  -- A score is a verdict on the finished work. The client only offers the
+  -- control once a title is completed; this keeps a bulk importer honest too.
+  constraint entries_score_needs_completion check (score is null or status = 'completed'),
   constraint entries_progress_positive check (progress >= 0 and progress_volumes >= 0),
   constraint entries_repeats_positive check (repeats >= 0),
   constraint entries_note_length check (note is null or char_length(note) <= 280)

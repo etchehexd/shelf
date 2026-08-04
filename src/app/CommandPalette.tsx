@@ -12,7 +12,7 @@ import { usePrefs } from '@/data/store/prefs'
 import { useTrackedIds } from '@/data/store/selectors'
 
 const ROUTES = [
-  { to: '/', label: 'Dashboard', icon: LayoutGrid },
+  { to: '/', label: 'Home', icon: LayoutGrid },
   { to: '/library', label: 'Library', icon: Library },
   { to: '/collections', label: 'Collections', icon: Sparkles },
   { to: '/discover', label: 'Discover', icon: Compass },
@@ -20,9 +20,10 @@ const ROUTES = [
 ]
 
 /**
- * Searches your own library first and AniList second, because the overwhelmingly
- * common case is "jump to something I already track". Remote results are clearly
- * separated rather than interleaved, so the two never compete for the top slot.
+ * Searches your own library first and the wider catalog second, because the
+ * overwhelmingly common case is "jump to something I already track". The two
+ * groups stay separated rather than interleaved, so they never compete for the
+ * top slot — and the second group is never named after where it comes from.
  */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
@@ -78,13 +79,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   type Row =
     | { kind: 'route'; to: string; label: string; icon: typeof LayoutGrid }
-    | { kind: 'media'; media: MediaSummary; section: 'library' | 'anilist' }
+    | { kind: 'media'; media: MediaSummary; section: 'library' | 'catalog' }
 
   const rows = useMemo<Row[]>(
     () => [
       ...routes.map((r) => ({ kind: 'route' as const, ...r })),
       ...local.map((media) => ({ kind: 'media' as const, media, section: 'library' as const })),
-      ...remoteResults.map((media) => ({ kind: 'media' as const, media, section: 'anilist' as const })),
+      ...remoteResults.map((media) => ({ kind: 'media' as const, media, section: 'catalog' as const })),
     ],
     [routes, local, remoteResults],
   )
@@ -142,7 +143,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="Search your library, or all of AniList…"
+                placeholder="Search"
                 aria-label="Search"
                 className="h-14 w-full bg-transparent text-title text-ink placeholder:text-ink-3 focus:outline-none"
               />
@@ -188,7 +189,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 )
               })}
 
-              {remoteResults.length > 0 && <PaletteLabel>On AniList</PaletteLabel>}
+              {remoteResults.length > 0 && <PaletteLabel>Everything else</PaletteLabel>}
               {remoteResults.map((media) => {
                 cursor += 1
                 const index = cursor
@@ -199,13 +200,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     language={language}
                     active={index === active}
                     onPointerEnter={() => setActive(index)}
-                    onClick={() => go({ kind: 'media', media, section: 'anilist' })}
+                    onClick={() => go({ kind: 'media', media, section: 'catalog' })}
                   />
                 )
               })}
             </div>
 
-            <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 text-micro text-ink-3">
+            <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 font-mono text-[0.625rem] tracking-wide text-ink-3">
               <span className="flex items-center gap-1.5">
                 <Key>↑</Key>
                 <Key>↓</Key>
@@ -231,7 +232,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 }
 
 function PaletteLabel({ children }: { children: React.ReactNode }) {
-  return <p className="px-3 pt-3 pb-1.5 text-micro text-ink-3 uppercase">{children}</p>
+  return <p className="label-cat label-cat-plain px-3 pt-3 pb-1.5">{children}</p>
 }
 
 function PaletteRow({
@@ -266,11 +267,11 @@ function MediaPaletteRow({
   return (
     <PaletteRow active={active} {...rest}>
       <span className="w-7 shrink-0">
-        <CoverImage src={media.coverImage} alt="" color={media.color} rounded="sm" />
+        <CoverImage src={media.coverImage} alt="" color={media.color} flat />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{displayTitle(media, language)}</span>
-        <span className="tnum block truncate text-meta text-ink-3">
+        <span className="font-mono-num block truncate text-meta text-ink-3">
           {[media.seasonYear, media.format?.replace(/_/g, ' ')].filter(Boolean).join(' · ')}
         </span>
       </span>
@@ -280,7 +281,7 @@ function MediaPaletteRow({
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-[4px] border border-line bg-surface-2 px-1 font-sans text-micro text-ink-3">
+    <kbd className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-[4px] border border-line bg-surface-2 px-1 font-mono text-[0.625rem] text-ink-3">
       {children}
     </kbd>
   )

@@ -12,14 +12,13 @@ export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   if (!enabled) {
     return (
       <Centered>
-        <h1 className="font-display text-display-md text-ink">Sync isn't configured</h1>
+        <h1 className="text-display-md text-ink">Sync isn't configured</h1>
         <p className="mt-3 text-body text-ink-2">
           Shelf is running in local-only mode. Your library works exactly as it does with an
           account — it just lives in this browser.
@@ -39,7 +38,7 @@ export default function AuthPage() {
   if (session) {
     return (
       <Centered>
-        <h1 className="font-display text-display-md text-ink">You're signed in</h1>
+        <h1 className="text-display-md text-ink">You're signed in</h1>
         <p className="mt-3 text-body text-ink-2">
           Syncing as {session.user.email}. Everything you track is saved locally first and pushed
           up in the background.
@@ -57,9 +56,7 @@ export default function AuthPage() {
     setBusy(true)
 
     const result =
-      mode === 'signin'
-        ? await signIn(email, password)
-        : await signUp(email, password, displayName.trim() || email.split('@')[0])
+      mode === 'signin' ? await signIn(email, password) : await signUp(email, password)
 
     setBusy(false)
 
@@ -78,7 +75,7 @@ export default function AuthPage() {
 
   return (
     <Centered>
-      <h1 className="font-display text-display-md text-ink">
+      <h1 className="text-display-md text-ink">
         {mode === 'signin' ? 'Welcome back' : 'Make a shelf'}
       </h1>
       <p className="mt-2 mb-8 text-body text-ink-2">
@@ -88,21 +85,10 @@ export default function AuthPage() {
       </p>
 
       <Card padding="compact">
+        {/* No display-name field. A new account is an empty room, not a
+            half-filled form — the name goes on the door in Profile → Edit,
+            when there is something behind it worth naming. */}
         <form onSubmit={submit} className="space-y-4 text-left">
-          {mode === 'signup' && (
-            <Field label="Display name">
-              {(props) => (
-                <Input
-                  {...props}
-                  value={displayName}
-                  autoComplete="nickname"
-                  placeholder="Elly"
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              )}
-            </Field>
-          )}
-
           <Field label="Email">
             {(props) => (
               <Input
@@ -155,9 +141,19 @@ export default function AuthPage() {
         </button>
       </p>
 
+      {/* Guest mode is the default, not a fallback, so the way out of this
+          screen is never hidden. Nothing in the app is gated behind an
+          account except the profile, which has nothing to hold without one. */}
       <p className="mt-8 text-meta text-ink-3">
-        Your library already works without an account — signing in only adds sync and sharing.
+        You don't need an account. Everything — tracking, ranking, collections — already works
+        signed out and stays on this device. Signing in adds sync, sharing, and a profile.
       </p>
+      <Link
+        to="/"
+        className="label-cat label-cat-plain mt-5 inline-block hover:text-ink"
+      >
+        Keep looking around
+      </Link>
     </Centered>
   )
 }

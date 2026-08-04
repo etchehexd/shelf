@@ -9,9 +9,16 @@ import {
   type Ref,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/lib/cn'
-import { useAnchoredPosition, useEscape, useFocusTrap, useOutsideDismiss, type Align, type Side } from './hooks'
+import {
+  useAnchoredPosition,
+  useEscape,
+  useFocusTrap,
+  useIsoLayoutEffect,
+  useOutsideDismiss,
+  type Align,
+  type Side,
+} from './hooks'
 
 type TriggerProps = {
   ref?: Ref<HTMLElement>
@@ -85,38 +92,159 @@ export function Popover({
   return (
     <>
       {anchored}
-      {createPortal(
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              ref={floatingRef}
-              role={role}
-              aria-label={label}
-              initial={{ opacity: 0, scale: 0.97, y: side === 'top' ? 4 : -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.1 } }}
-              transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-              style={{
-                position: 'fixed',
-                top: pos?.top ?? 0,
-                left: pos?.left ?? 0,
-                // Keep it out of the way until the first measurement lands,
-                // otherwise it flashes at the top-left corner.
-                visibility: pos ? 'visible' : 'hidden',
-              }}
-              className={cn(
-                'z-50 rounded-lg border border-line bg-surface p-1.5 shadow-md',
-                'origin-top focus:outline-none',
-                className,
-              )}
-            >
-              {typeof children === 'function' ? children({ close }) : children}
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body,
-      )}
+      {open &&
+        createPortal(
+          /**
+           * Mounted only while open, with a CSS entrance and no exit animation.
+           *
+           * There used to be an AnimatePresence exit here, and it was the
+           * source of the rating panel's worst behavior: while a panel is
+           * exiting it is rendered from a *frozen snapshot* of its last props,
+           * so a panel that was reopened before the fade finished could show a
+           * stale score, and the dying copy still occupied the same pixels.
+           *
+           * A menu should also just be gone the moment you dismiss it —
+           * a lingering fade is what makes a popover feel unresponsive.
+           */
+          <div
+            ref={floatingRef}
+            role={role}
+            aria-label={label}
+            style={{
+              position: 'fixed',
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              // Keep it out of the way until the first measurement lands,
+              // otherwise it flashes at the top-left corner.
+              visibility: pos ? 'visible' : 'hidden',
+            }}
+            className={cn(
+              'z-50 rounded-lg border border-line bg-surface p-1.5 shadow-md',
+              'origin-top focus:outline-none',
+              'motion-safe:animate-[pop-in_170ms_var(--ease-out-expo)]',
+              className,
+            )}
+          >
+            {typeof children === 'function' ? children({ close }) : children}
+          </div>,
+          document.body,
+        )}
     </>
+  )
+}
+
+/* ------------------------------------------------------------ context menu -- */
+
+export interface ContextPoint {
+  x: number
+  y: number
+}
+
+/**
+ * Right-click menus.
+ *
+ * Same menu furniture as `Popover`, but anchored to a point rather than an
+ * element — so any poster in the app can carry the full set of actions without
+ * spending a visible button on them.
+ */
+export function useContextMenu() {
+  const [point, setPoint] = useState<ContextPoint | null>(null)
+
+  const open = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setPoint({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const close = useCallback(() => setPoint(null), [])
+
+  return { point, open, close, isOpen: point != null }
+}
+
+export function ContextMenu({
+  point,
+  onClose,
+  label,
+  children,
+  className,
+}: {
+  point: ContextPoint | null
+  onClose: () => void
+  label?: string
+  children: ReactNode | ((api: { close: () => void }) => ReactNode)
+  className?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const refs = useMemo(() => [ref], [])
+  const open = point != null
+
+  useOutsideDismiss(refs, open, onClose)
+  useEscape(open, onClose)
+  useFocusTrap(ref, open)
+
+  /**
+   * Measured after mount so the menu can flip away from the viewport edges;
+   * until then it is laid out but not painted.
+   *
+   * A ResizeObserver rather than a one-shot read: a menu measured before its
+   * webfont lands comes back a few pixels short, and a few pixels short is
+   * exactly enough to leave the last item hanging off the bottom of the screen.
+   */
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null)
+
+  useIsoLayoutEffect(() => {
+    if (!open) {
+      setSize(null)
+      return
+    }
+    const el = ref.current
+    if (!el) return
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setSize((prev) =>
+        prev && prev.w === rect.width && prev.h === rect.height
+          ? prev
+          : { w: rect.width, h: rect.height },
+      )
+    }
+
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [open])
+
+  if (!open) return null
+
+  const pad = 8
+  const vw = document.documentElement.clientWidth
+  const vh = window.innerHeight
+  const left = Math.max(pad, size ? Math.min(point.x, vw - size.w - pad) : point.x)
+  const top = Math.max(pad, size ? Math.min(point.y, vh - size.h - pad) : point.y)
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="menu"
+      aria-label={label}
+      style={{
+        position: 'fixed',
+        top,
+        left,
+        // A long menu scrolls inside itself rather than off the screen.
+        maxHeight: vh - top - pad,
+        visibility: size ? 'visible' : 'hidden',
+      }}
+      className={cn(
+        'z-50 min-w-52 overflow-y-auto overscroll-contain rounded-lg border border-line bg-surface p-1.5 shadow-lg focus:outline-none',
+        'motion-safe:animate-[pop-in_160ms_var(--ease-out-expo)]',
+        className,
+      )}
+    >
+      {typeof children === 'function' ? children({ close: onClose }) : children}
+    </div>,
+    document.body,
   )
 }
 
@@ -166,5 +294,5 @@ export function MenuSeparator() {
 }
 
 export function MenuLabel({ children }: { children: ReactNode }) {
-  return <p className="px-2.5 pt-2 pb-1 text-micro text-ink-3 uppercase">{children}</p>
+  return <p className="label-cat label-cat-plain px-2.5 pt-2 pb-1.5">{children}</p>
 }

@@ -21,7 +21,7 @@ export function Field({ label, hint, error, counter, children, className }: Fiel
         <label htmlFor={id} className="text-label font-medium text-ink">
           {label}
         </label>
-        {counter && <span className="tnum text-meta text-ink-3">{counter}</span>}
+        {counter && <span className="font-mono-num text-meta text-ink-3">{counter}</span>}
       </div>
 
       {children({ id, 'aria-describedby': describedBy })}
@@ -54,6 +54,34 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, rows = 3, ...rest }, ref) {
     return <textarea ref={ref} rows={rows} className={cn(CONTROL, 'resize-y py-2.5', className)} {...rest} />
+  },
+)
+
+/**
+ * The one search field in the product.
+ *
+ * Four screens used to build this by hand out of an Input and an absolutely
+ * positioned icon, with four slightly different paddings. Now they don't.
+ */
+export const SearchInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function SearchInput({ className, ...rest }, ref) {
+    return (
+      <div className={cn('relative min-w-0', className)}>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3"
+          aria-hidden
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <Input ref={ref} type="search" className="pl-9" {...rest} />
+      </div>
+    )
   },
 )
 

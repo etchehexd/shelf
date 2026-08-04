@@ -5,8 +5,8 @@ import { cn } from '@/lib/cn'
 import { useAnchoredPosition, type Align, type Side } from './hooks'
 
 /**
- * A shared timer means moving between neighbouring tooltips is instant while
- * the first one still costs 400ms — the standard "tooltip group" behaviour that
+ * A shared timer means moving between neighboring tooltips is instant while
+ * the first one still costs 400ms — the standard "tooltip group" behavior that
  * stops a toolbar from feeling laggy.
  */
 let groupOpenUntil = 0
@@ -25,9 +25,22 @@ export interface TooltipProps {
   side?: Side
   align?: Align
   delay?: number
+  /**
+   * Suppress the tooltip while keeping the trigger untouched — for controls
+   * whose visible label comes and goes, like the collapsible rail. Cheaper and
+   * safer than conditionally wrapping, which would remount the trigger.
+   */
+  disabled?: boolean
 }
 
-export function Tooltip({ content, children, side = 'top', align = 'center', delay = 400 }: TooltipProps) {
+export function Tooltip({
+  content,
+  children,
+  side = 'top',
+  align = 'center',
+  delay = 400,
+  disabled,
+}: TooltipProps) {
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLElement>(null)
   const floatingRef = useRef<HTMLDivElement>(null)
@@ -36,6 +49,7 @@ export function Tooltip({ content, children, side = 'top', align = 'center', del
   const pos = useAnchoredPosition(anchorRef, floatingRef, open, { side, align, offset: 6 })
 
   const show = () => {
+    if (disabled) return
     if (timer.current) window.clearTimeout(timer.current)
     const wait = Date.now() < groupOpenUntil ? 0 : delay
     timer.current = window.setTimeout(() => setOpen(true), wait)
@@ -59,7 +73,7 @@ export function Tooltip({ content, children, side = 'top', align = 'center', del
     },
     onFocus: (e: React.FocusEvent) => {
       children.props.onFocus?.(e)
-      setOpen(true)
+      if (!disabled) setOpen(true)
     },
     onBlur: (e: React.FocusEvent) => {
       children.props.onBlur?.(e)

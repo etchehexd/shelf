@@ -215,7 +215,7 @@ function applyRemoteEntry(row: Record<string, unknown>) {
         score: row.score == null ? null : Number(row.score),
         repeats: Number(row.repeats ?? 0),
         note: (row.note as string) ?? null,
-        favourite: Boolean(row.favourite),
+        favorite: Boolean(row.favorite),
         startedAt: (row.started_at as string) ?? null,
         finishedAt: (row.finished_at as string) ?? null,
         createdAt: Date.parse(String(row.created_at)) || Date.now(),

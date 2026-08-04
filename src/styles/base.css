@@ -1,5 +1,6 @@
 /* ---------------------------------------------------------------------------
- * Base layer — element defaults, focus, scrollbars, shared keyframes.
+ * Base layer — element defaults, focus, scrollbars, and the utilities that
+ * carry the house style: the frame, the shelf, the catalog label, the stack.
  * ------------------------------------------------------------------------- */
 
 @layer base {
@@ -17,22 +18,35 @@
     color: var(--ink);
     font-family: var(--font-sans);
     font-size: 0.90625rem;
-    line-height: 1.6;
+    line-height: 1.65;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
   }
 
-  /* Fraunces is the voice of the product: soft, slightly wonky, warm. */
-  .font-display,
+  /* Paper grain. Two percent of noise over the whole app is the difference
+     between "warm neutral" and "flat gray" — you never see it, you only stop
+     noticing that the background looks like a #FFFFFF rectangle. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: var(--grain);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Headings are confident, not dramatic: same family, more weight, tighter
+     tracking. No second typeface anywhere in the product. */
   h1,
   h2,
-  h3 {
-    font-family: var(--font-display);
-    font-variation-settings: 'SOFT' 26, 'WONK' 1, 'opsz' 40;
-    font-weight: 500;
-    letter-spacing: -0.02em;
+  h3,
+  h4 {
+    font-weight: 600;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
   }
 
   /* Numerals must never shimmy when a count changes. */
@@ -82,7 +96,171 @@
   }
 }
 
+@layer components {
+  /* ---------------------------------------------------------------- label --
+     The catalog label. Mono, small, wide, uppercase, with a leading tick.
+     It appears on every page and is the single most repeated brand mark in
+     the product — more than the logo. */
+  .label-cat {
+    font-family: var(--font-mono);
+    font-size: 0.65625rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* The tick: a 5px square rotated 45°. Reads as a bullet on a museum card. */
+  .label-cat::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    flex: none;
+    background: currentColor;
+    opacity: 0.55;
+    transform: rotate(45deg);
+  }
+
+  .label-cat-plain::before {
+    display: none;
+  }
+
+  /* ---------------------------------------------------------------- frame --
+     Every piece of artwork lives in a frame: near-square corners, a hairline
+     inset so pale covers don't dissolve into pale paper, and a contact shadow
+     that makes it read as a printed object rather than an <img>. */
+  .frame {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-art);
+    box-shadow: var(--shadow-poster);
+    background-color: var(--surface-2);
+    transition:
+      transform 420ms var(--ease-out-expo),
+      box-shadow 420ms var(--ease-out-expo);
+  }
+
+  .frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
+  }
+
+  [data-theme='dark'] .frame::after {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  }
+
+  /* The signature hover. The poster rises off the shelf and its shadow spreads
+     underneath it. Used on every card in the app, at every size. */
+  .frame-lift:hover .frame,
+  .frame-lift:focus-visible .frame {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-poster-lift);
+  }
+
+  /* ----------------------------------------------------------------- fan --
+     Cover stacks. At rest the cards lean on each other; on hover of the
+     enclosing `group` the stack fans open like records pulled from a crate.
+     Transform lives in a custom property so nothing needs `!important` to
+     beat an inline style. */
+  .fan-card {
+    transform: var(--rest);
+  }
+
+  .fan-card-open {
+    transition:
+      transform 520ms var(--ease-out-expo),
+      box-shadow 520ms var(--ease-out-expo);
+  }
+
+  .group:hover .fan-card-open,
+  .group:focus-visible .fan-card-open,
+  .group:focus-within .fan-card-open {
+    transform: var(--fan);
+    box-shadow: var(--shadow-poster-lift);
+  }
+
+  /* ---------------------------------------------------------------- shelf --
+     A hairline with a soft pool of shadow above it. Draw it under any row of
+     artwork and the row becomes a bookshelf. */
+  .shelf-line {
+    position: relative;
+    height: 1px;
+    background: var(--shelf-line);
+    border-radius: 1px;
+  }
+
+  .shelf-line::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    height: 22px;
+    pointer-events: none;
+    background: linear-gradient(to top, rgb(38 30 20 / 0.07), transparent);
+  }
+
+  [data-theme='dark'] .shelf-line::before {
+    background: linear-gradient(to top, rgb(0 0 0 / 0.35), transparent);
+  }
+
+  /* The shelf carries a small end-cap so it reads as joinery, not a divider. */
+  .shelf-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 34px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0.85;
+  }
+
+  /* ----------------------------------------------------------------- rule --
+     Section rule: a short solid segment that fades into a hairline. Used to
+     close every section header. */
+  .rule {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      var(--border-strong) 0,
+      var(--border-strong) 48px,
+      var(--border) 48px,
+      var(--border) 100%
+    );
+  }
+
+  /* ----------------------------------------------------------------- card --
+     The soft room the sharp artwork sits in. */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  .panel-sunk {
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+  }
+}
+
 @layer utilities {
+  .font-mono-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
   /* Horizontal rails: hide the bar, keep the scroll. */
   .no-scrollbar {
     scrollbar-width: none;
@@ -92,19 +270,152 @@
     display: none;
   }
 
-  /* Cheap virtualisation for long grids — see ARCHITECTURE.md §Performance. */
+  /* Cheap virtualization for long grids — see ARCHITECTURE.md §Performance. */
   .cv-auto {
     content-visibility: auto;
     contain-intrinsic-size: auto 320px;
   }
 
   .prose-width {
-    max-width: 68ch;
+    max-width: 66ch;
+  }
+
+  /* ------------------------------------------------------------- the rail --
+     The navigation rail's width and the content column's offset are the same
+     number, so they are literally the same declaration read twice.
+
+     `--rail-w` is written once, inline, on the layout root — see AppLayout,
+     which resolves the breakpoint in JS rather than here. That is deliberate:
+     expressing it as CSS breakpoints means a base width utility and an `lg:`
+     override competing on equal specificity, where the winner is decided by
+     the order the framework happens to emit them in. One authored value and
+     one consumer per property has no such race, and the two elements are
+     guaranteed to agree frame for frame while they animate. */
+  .rail-shell {
+    width: var(--rail-w, 236px);
+    transition: width 380ms var(--ease-out-expo);
+  }
+
+  .rail-offset {
+    padding-left: var(--rail-w, 236px);
+    transition: padding-left 380ms var(--ease-out-expo);
   }
 
   /* Fade out the trailing edge of a rail so it reads as "more over here". */
   .rail-mask {
-    mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 56px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 64px), transparent 100%);
+  }
+
+  /* Artwork that bleeds past the edge of the page gutter. */
+  .bleed-x {
+    margin-inline: calc(var(--spacing) * -5);
+  }
+  @media (min-width: 768px) {
+    .bleed-x {
+      margin-inline: calc(var(--spacing) * -10);
+    }
+  }
+
+  /* Staggered grid. Every other poster drops half a step, so a wall of covers
+     reads as a shelf that was filled by hand rather than as a table. The lift
+     transform lives on the inner .frame, so this never fights it. */
+  @media (min-width: 768px) {
+    .grid-stagger {
+      padding-bottom: 1.75rem;
+    }
+    .grid-stagger > *:nth-child(even) {
+      transform: translateY(1.75rem);
+    }
+  }
+
+  /* ------------------------------------------------------------ overlap --
+     A row of covers that lean on each other like books shelved too tightly.
+     Hovering one pulls it forward and lets the row breathe around it — the
+     single cheapest way to make a static row of artwork feel alive.
+
+     Each child sets its own overlap via the negative margin; the hover rules
+     live here so every overlap row in the app behaves identically. */
+  .overlap-row {
+    display: flex;
+    align-items: flex-end;
+    padding-block: 0.5rem;
+  }
+
+  .overlap-row > * + * {
+    margin-left: var(--overlap, -2.25rem);
+    transition: margin 420ms var(--ease-out-expo);
+  }
+
+  .overlap-row:hover > * + * {
+    margin-left: calc(var(--overlap, -2.25rem) + 0.75rem);
+  }
+
+  .overlap-row > * {
+    transition: transform 420ms var(--ease-out-expo);
+  }
+
+  .overlap-row > *:hover {
+    z-index: 5;
+  }
+
+  /* ------------------------------------------------------------- posters --
+     The one poster grid in the product. Every grid of covers uses it, which is
+     what stops four pages having four slightly different column widths. */
+  .poster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    column-gap: 1.25rem;
+    row-gap: 2rem;
+  }
+
+  @media (min-width: 768px) {
+    .poster-grid {
+      grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
+    }
+  }
+
+  /* The editorial variant: the first cell spans two columns and two rows, so
+     the wall of covers opens with one large piece instead of reading as a
+     uniform tile. */
+  @media (min-width: 640px) {
+    .poster-grid-lead > *:first-child {
+      grid-column: span 2;
+      grid-row: span 2;
+    }
+  }
+
+  /* --------------------------------------------------------------- scrim --
+     The one gradient in the product: artwork → page, so type stays legible
+     over any cover without tinting the artwork itself. */
+  .scrim-up {
+    background: linear-gradient(
+      to top,
+      rgb(var(--scrim) / 1) 0%,
+      rgb(var(--scrim) / 0.86) 34%,
+      rgb(var(--scrim) / 0.28) 72%,
+      rgb(var(--scrim) / 0) 100%
+    );
+  }
+
+  .scrim-side {
+    background: linear-gradient(
+      100deg,
+      rgb(var(--scrim) / 0.98) 0%,
+      rgb(var(--scrim) / 0.9) 40%,
+      rgb(var(--scrim) / 0.3) 100%
+    );
+  }
+
+  /* Blown-up, blurred artwork sitting behind a section — the cheapest way to
+     let a cover color the room without adding a single UI color. */
+  .art-wash {
+    filter: blur(44px) saturate(1.25);
+    transform: scale(1.25);
+    opacity: 0.5;
+  }
+
+  [data-theme='dark'] .art-wash {
+    opacity: 0.32;
   }
 
   .shimmer {
@@ -122,6 +433,12 @@
     text-wrap: balance;
   }
 
+  .clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -134,11 +451,62 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  /* Staggered entrance for grids and rails. The delay is set inline per item. */
+  .rise-in {
+    animation: rise-in 520ms var(--ease-out-expo) both;
+  }
 }
 
 @keyframes shimmer {
   to {
     background-position: -200% 0;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The score pop. Runs inside a box that already reserves its widest size, so
+   it can never push anything around it. */
+@keyframes score-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Popovers and menus. Entrance only — they leave instantly, so a dismissed
+   menu can never sit on top of what you clicked next. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A cover sliding into a stack. Used by the featured shelves. */
+@keyframes deal-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) rotate(0deg);
+  }
+  to {
+    opacity: 1;
   }
 }
 

@@ -1,12 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { AlertTriangle, Cloud, Download, Trash2 } from 'lucide-react'
-import { Button, Card, MenuItem, Popover, SectionHeader, Switch, toast } from '@/design'
+import { AlertTriangle, Cloud, Download, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  Button,
+  Card,
+  Dialog,
+  Field,
+  Input,
+  MenuItem,
+  Popover,
+  SectionHeader,
+  Switch,
+  toast,
+} from '@/design'
 import { useAuth } from '@/data/supabase/auth'
 import { useLibrary } from '@/data/store/library'
 import { usePrefs, type ThemeSetting, type ViewMode } from '@/data/store/prefs'
 import { onSyncStatus, type SyncStatus } from '@/data/sync/engine'
 import { clearDeadLetters, deadLetters, type Op } from '@/data/sync/outbox'
+import { wipeEverything } from '@/data/sync/wipe'
 import type { TitleLanguage } from '@/data/anilist/normalize'
 import { pluralize } from '@/lib/format'
 import { relativeShort } from '@/lib/dates'
@@ -23,6 +35,7 @@ export default function SettingsPage() {
     pending: 0,
   })
   const [dead, setDead] = useState<Op[]>([])
+  const [wiping, setWiping] = useState(false)
 
   useEffect(() => onSyncStatus((status, pending) => setSync({ status, pending })), [])
   useEffect(() => {
@@ -53,11 +66,11 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-12 pt-2 pb-8">
-      <h1 className="font-display text-display-lg text-ink">Settings</h1>
+      <h1 className="text-display-lg text-ink">Settings</h1>
 
       {/* ------------------------------------------------------------ sync */}
       <section className="space-y-5">
-        <SectionHeader eyebrow="Sync" title="Your data" size="sm" />
+        <SectionHeader title="Sync" size="sm" />
 
         <Card padding="compact" className="space-y-4">
           {!enabled ? (
@@ -137,7 +150,7 @@ export default function SettingsPage() {
 
       {/* ------------------------------------------------------- appearance */}
       <section className="space-y-5">
-        <SectionHeader eyebrow="Appearance" title="How Shelf looks" size="sm" />
+        <SectionHeader title="Appearance" size="sm" />
         <Card padding="compact" className="space-y-5">
           <SettingRow label="Theme" description="Follows your system by default.">
             <Choice<ThemeSetting>
@@ -179,20 +192,20 @@ export default function SettingsPage() {
 
       {/* ----------------------------------------------------------- privacy */}
       <section className="space-y-5">
-        <SectionHeader eyebrow="Privacy" title="Who can see your shelf" size="sm" />
+        <SectionHeader title="Privacy" size="sm" />
         <Card padding="compact">
           <Switch
             checked={profile.isPublic}
             onChange={(isPublic) => updateProfile({ isPublic })}
             label="Public profile"
-            description="Lets anyone with your link see your library, ratings and activity. Collections keep their own visibility setting either way."
+            description="Anyone with your link can see your library, scores and activity."
           />
         </Card>
       </section>
 
       {/* ------------------------------------------------------------- data */}
       <section className="space-y-5">
-        <SectionHeader eyebrow="Data" title="Export and reset" size="sm" />
+        <SectionHeader title="Data" size="sm" />
         <Card padding="compact" className="space-y-4">
           <SettingRow
             label="Export your library"
@@ -205,12 +218,11 @@ export default function SettingsPage() {
 
           <SettingRow
             label="Reset this device"
-            description="Clears the local library. If you're signed in, syncing will pull it back."
+            description="Clears the local copy only. Signed in, syncing will pull it back."
           >
             <Button
               size="sm"
-              variant="danger"
-              icon={<Trash2 className="size-4" />}
+              icon={<RotateCcw className="size-4" />}
               onClick={() => {
                 reset()
                 usePrefs.getState().setOnboarded(true)
@@ -220,9 +232,104 @@ export default function SettingsPage() {
               Reset
             </Button>
           </SettingRow>
+
+          <SettingRow
+            label="Erase everything"
+            description="Deletes your library, rankings, collections, notes, history and profile — here and on the server. Your account stays, empty. This cannot be undone."
+          >
+            <Button
+              size="sm"
+              variant="danger"
+              icon={<Trash2 className="size-4" />}
+              onClick={() => setWiping(true)}
+            >
+              Erase
+            </Button>
+          </SettingRow>
         </Card>
       </section>
+
+      <WipeDialog open={wiping} onClose={() => setWiping(false)} userId={session?.user.id ?? null} />
     </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Confirmation for the one irreversible action in the app.
+ *
+ * Typing the word is not friction theatre — every other destructive thing here
+ * offers Undo, and this one genuinely cannot, so the gesture has to be one you
+ * could not perform by accident. The export button sits inside the dialog for
+ * the same reason: the moment someone is about to lose everything is exactly
+ * when they should be offered a copy of it.
+ */
+function WipeDialog({
+  open,
+  onClose,
+  userId,
+}: {
+  open: boolean
+  onClose: () => void
+  userId: string | null
+}) {
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!open) {
+      setConfirm('')
+      setBusy(false)
+    }
+  }, [open])
+
+  const ready = confirm.trim().toLowerCase() === 'erase'
+
+  const run = async () => {
+    setBusy(true)
+    try {
+      await wipeEverything(userId)
+      toast({ message: 'Everything erased. Starting over.' })
+      onClose()
+    } catch {
+      toast({ message: "Couldn't erase everything — try again", tone: 'danger' })
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Erase everything?"
+      description="Your library, rankings, collections, notes, history and profile — gone, on this device and on the server. Your account itself stays, completely empty."
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="danger" size="sm" disabled={!ready} loading={busy} onClick={() => void run()}>
+            Erase everything
+          </Button>
+        </>
+      }
+    >
+      <Field label="Type ERASE to confirm">
+        {(props) => (
+          <Input
+            {...props}
+            data-autofocus
+            value={confirm}
+            autoComplete="off"
+            placeholder="ERASE"
+            onChange={(e) => setConfirm(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && ready && void run()}
+          />
+        )}
+      </Field>
+    </Dialog>
   )
 }
 

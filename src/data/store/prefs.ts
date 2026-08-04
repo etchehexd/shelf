@@ -6,7 +6,8 @@ import type { MediaKind } from '@/data/anilist/types'
 
 export type ThemeSetting = 'light' | 'dark' | 'system'
 export type ViewMode = 'grid' | 'shelf' | 'list'
-export type LibrarySort = 'updated' | 'title' | 'score' | 'rank' | 'progress' | 'added'
+/** No 'rank' — ordering by taste lives in its own section now. */
+export type LibrarySort = 'updated' | 'title' | 'score' | 'progress' | 'added'
 
 interface PrefsState {
   theme: ThemeSetting
@@ -16,6 +17,8 @@ interface PrefsState {
   lastKind: MediaKind
   /** Whether the first-run tour has been dismissed. */
   onboarded: boolean
+  /** Icon-only navigation rail. Persisted, because it is a posture, not a mode. */
+  railCollapsed: boolean
 
   setTheme: (theme: ThemeSetting) => void
   setTitleLanguage: (language: TitleLanguage) => void
@@ -23,6 +26,8 @@ interface PrefsState {
   setLibrarySort: (sort: LibrarySort) => void
   setLastKind: (kind: MediaKind) => void
   setOnboarded: (value: boolean) => void
+  setRailCollapsed: (value: boolean) => void
+  toggleRail: () => void
 }
 
 /**
@@ -35,10 +40,13 @@ export const usePrefs = create<PrefsState>()(
     (set) => ({
       theme: 'system',
       titleLanguage: 'english',
-      defaultView: 'grid',
+      // Shelves, not a grid: the library should look like a bookcase the first
+      // time you open it.
+      defaultView: 'shelf',
       librarySort: 'updated',
       lastKind: 'anime',
       onboarded: false,
+      railCollapsed: false,
 
       setTheme: (theme) => {
         set({ theme })
@@ -49,10 +57,23 @@ export const usePrefs = create<PrefsState>()(
       setLibrarySort: (librarySort) => set({ librarySort }),
       setLastKind: (lastKind) => set({ lastKind }),
       setOnboarded: (onboarded) => set({ onboarded }),
+      setRailCollapsed: (railCollapsed) => set({ railCollapsed }),
+      toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
     }),
     {
       name: 'shelf.prefs',
-      version: 1,
+      version: 2,
+      /**
+       * v1 → v2: `rank` stopped being a library sort when rankings moved to
+       * their own section. A stored value that no longer exists in the union
+       * would leave the sort menu showing nothing selected, so it is folded
+       * back to the default rather than left dangling.
+       */
+      migrate: (persisted) => {
+        const state = persisted as Record<string, unknown>
+        if (state?.librarySort === 'rank') state.librarySort = 'updated'
+        return state as unknown as PrefsState
+      },
       onRehydrateStorage: () => (state) => {
         // Re-apply after rehydration in case the inline script guessed 'system'
         // and the stored value is explicit.

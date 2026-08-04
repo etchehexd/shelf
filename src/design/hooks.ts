@@ -179,10 +179,18 @@ export function useAnchoredPosition(
         align === 'start' ? a.top : align === 'end' ? a.bottom - f.height : a.top + a.height / 2 - f.height / 2
     }
 
-    left = Math.min(Math.max(pad, left), vw - f.width - pad)
-    top = Math.min(Math.max(pad, top), vh - f.height - pad)
+    left = Math.round(Math.min(Math.max(pad, left), vw - f.width - pad))
+    top = Math.round(Math.min(Math.max(pad, top), vh - f.height - pad))
 
-    setPos({ top, left, side: resolved })
+    // Bail out when nothing moved. A ResizeObserver on the floating element
+    // fires for every content change inside it, and returning a fresh object
+    // each time would re-render — and visibly jitter — a popover whose content
+    // is animating, which is exactly what the rating panel does.
+    setPos((prev) =>
+      prev && prev.top === top && prev.left === left && prev.side === resolved
+        ? prev
+        : { top, left, side: resolved },
+    )
   }, [anchorRef, floatingRef, side, align, offset])
 
   useIsoLayoutEffect(() => {

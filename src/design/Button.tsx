@@ -26,6 +26,19 @@ const SIZES: Record<Size, string> = {
   lg: 'h-11 px-5 text-title',
 }
 
+/**
+ * The button's classes, for the cases where the element has to be an anchor or
+ * a router `Link`. A `<Link>` inside a `<button>` is invalid HTML, so anything
+ * that navigates borrows the styling instead of wrapping the component.
+ */
+export function buttonClasses(
+  variant: Variant = 'secondary',
+  size: Size = 'md',
+  className?: string,
+): string {
+  return cn(BASE, VARIANTS[variant], SIZES[size], className)
+}
+
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
   size?: Size

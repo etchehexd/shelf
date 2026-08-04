@@ -64,6 +64,118 @@ export function useRecentlyCompleted(limit = 12): LibraryEntry[] {
   )
 }
 
+/**
+ * Titles within a few units of the end.
+ *
+ * The dashboard leads with this because "two episodes left" is the single most
+ * actionable thing a tracker knows about you — far more useful than a count of
+ * everything in progress.
+ */
+export function almostDone(
+  entries: LibraryEntry[],
+  media: Map<number, MediaSummary>,
+  within = 3,
+): { entry: LibraryEntry; media: MediaSummary; left: number }[] {
+  const out: { entry: LibraryEntry; media: MediaSummary; left: number }[] = []
+
+  for (const entry of entries) {
+    if (entry.status !== 'current') continue
+    const m = media.get(entry.mediaId)
+    if (!m) continue
+
+    const total = m.kind === 'anime' ? m.episodes : m.kind === 'novel' ? m.volumes : m.chapters
+    if (total == null || total <= 1) continue
+
+    const left = total - entry.progress
+    if (left > 0 && left <= within) out.push({ entry, media: m, left })
+  }
+
+  return out.sort((a, b) => a.left - b.left || b.entry.updatedAt - a.entry.updatedAt)
+}
+
+/** Everything you're watching that AniList says has an episode on the way. */
+export function airingQueue(
+  entries: LibraryEntry[],
+  media: Map<number, MediaSummary>,
+): { entry: LibraryEntry; media: MediaSummary; airingAt: number; episode: number }[] {
+  const out: { entry: LibraryEntry; media: MediaSummary; airingAt: number; episode: number }[] = []
+
+  for (const entry of entries) {
+    if (entry.status !== 'current' && entry.status !== 'planning') continue
+    const m = media.get(entry.mediaId)
+    const next = m?.nextAiringEpisode
+    if (!m || !next) continue
+    out.push({ entry, media: m, airingAt: next.airingAt, episode: next.episode })
+  }
+
+  return out.sort((a, b) => a.airingAt - b.airingAt)
+}
+
+/**
+ * Recently scored titles, newest verdict first.
+ *
+ * Prefers the activity log, because "the order you made up your mind" is more
+ * interesting than "the order the rows were touched". Falls back to the entries
+ * themselves so an imported library — which has scores but no history — still
+ * fills the shelf instead of showing nothing.
+ */
+export function useRecentlyRated(limit = 12, minScore = 1): LibraryEntry[] {
+  const activity = useActivity()
+  const entries = useLibrary((s) => s.entries)
+
+  return useMemo(() => {
+    const seen = new Set<number>()
+    const out: LibraryEntry[] = []
+
+    for (const event of activity) {
+      if (event.type !== 'score' || event.payload.to == null || event.mediaId == null) continue
+      if (seen.has(event.mediaId)) continue
+      seen.add(event.mediaId)
+
+      const entry = entries[event.mediaId]
+      if (entry?.score != null && entry.score >= minScore) out.push(entry)
+      if (out.length >= limit) break
+    }
+
+    if (out.length >= limit) return out
+
+    for (const entry of Object.values(entries)) {
+      if (out.length >= limit) break
+      if (entry.score == null || entry.score < minScore || seen.has(entry.mediaId)) continue
+      seen.add(entry.mediaId)
+      out.push(entry)
+    }
+
+    return out
+  }, [activity, entries, limit, minScore])
+}
+
+/** Your best, by score — the shelf you'd point at. */
+export function useHighestRated(limit = 12, kind?: MediaKind): LibraryEntry[] {
+  const entries = useAllEntries()
+  return useMemo(
+    () =>
+      entries
+        .filter((e) => e.score != null && (!kind || e.kind === kind))
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || b.updatedAt - a.updatedAt)
+        .slice(0, limit),
+    [entries, limit, kind],
+  )
+}
+
+/** Everything you marked a favorite, newest first. */
+export function useFavorites(limit = 12): LibraryEntry[] {
+  const entries = useAllEntries()
+  return useMemo(
+    () =>
+      entries
+        .filter((e) => e.favorite)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, limit),
+    [entries, limit],
+  )
+}
+
 /* --------------------------------------------------------------- rankings -- */
 
 export function useRankedIds(kind: MediaKind): number[] {

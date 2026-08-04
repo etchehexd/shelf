@@ -1,0 +1,205 @@
+import { useMemo, useState } from 'react'
+import { cn } from '@/lib/cn'
+
+/**
+ * The shape of your taste.
+ *
+ * Everywhere the app shows your scores in aggregate it shows this, and only
+ * this — the old surfaces printed a bare average and a row of digits, which is
+ * a number you have to *think* about rather than a picture you can read. A
+ * histogram answers the actual question in one glance: are you generous, are
+ * you harsh, do you only finish things you already know you'll love.
+ *
+ * Deliberately not a chart library:
+ *
+ *  - the axis is the product's own five-star scale, drawn underneath the ten
+ *    columns it maps onto, so "8" and "★★★★" are visibly the same statement
+ *  - the mean is a hairline standing *in* the plot at its true fractional
+ *    position, not a legend entry
+ *  - bars carry two levels of ember by band, so the mass of the distribution
+ *    reads before any individual column does
+ *  - no gridlines, no tick marks, no boxed frame; the baseline rule is the
+ *    only structure, which is how every other section on the page is built
+ */
+
+export interface ScoreHistogramProps {
+  /** Ten buckets, scores 1–10. */
+  distribution: number[]
+  /** Plot height in px. The axis and footer add their own space. */
+  height?: number
+  /** Use the page's artwork accent instead of the brand ember. */
+  art?: boolean
+  /** Drop the count / average footer when the surrounding section says it. */
+  footer?: boolean
+  className?: string
+}
+
+export function ScoreHistogram({
+  distribution,
+  height = 132,
+  art,
+  footer = true,
+  className,
+}: ScoreHistogramProps) {
+  const [hover, setHover] = useState<number | null>(null)
+
+  const { total, max, mean, peak } = useMemo(() => {
+    const total = distribution.reduce((a, b) => a + b, 0)
+    const max = Math.max(1, ...distribution)
+    const weighted = distribution.reduce((sum, count, i) => sum + count * (i + 1), 0)
+    let peak = -1
+    distribution.forEach((count, i) => {
+      if (count > 0 && (peak === -1 || count > distribution[peak])) peak = i
+    })
+    return { total, max, mean: total > 0 ? weighted / total : null, peak }
+  }, [distribution])
+
+  if (total === 0) return null
+
+  const shown = hover ?? peak
+  const fill = art ? 'bg-art' : 'bg-accent'
+
+  return (
+    <div className={cn('min-w-0 max-w-xl', className)}>
+      {/* The readout sits above the plot and reserves its height, so sweeping
+          across the columns can never nudge the chart underneath it. */}
+      <div className="mb-3 flex h-5 items-baseline gap-2">
+        {shown >= 0 && distribution[shown] > 0 && (
+          <>
+            <span
+              className={cn(
+                'font-mono-num text-title leading-none font-semibold',
+                art ? 'text-art' : 'text-accent',
+              )}
+            >
+              {distribution[shown]}
+            </span>
+            <span className="label-cat label-cat-plain">
+              rated {shown + 1}
+              {hover == null && ' · most given'}
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="relative" style={{ height }} onPointerLeave={() => setHover(null)}>
+        {/* The mean, standing in the plot at its fractional position. */}
+        {mean != null && (
+          <div
+            className="pointer-events-none absolute inset-y-0 z-10 w-px"
+            style={{ left: `${((mean - 0.5) / 10) * 100}%` }}
+            aria-hidden
+          >
+            <div className="h-full w-px bg-ink/25" />
+            <span
+              className={cn(
+                'font-mono-num absolute -top-0.5 left-1.5 rounded-[4px] px-1 py-px text-[0.5625rem] font-semibold whitespace-nowrap',
+                'bg-ink text-ink-inverse',
+              )}
+            >
+              avg {mean.toFixed(1)}
+            </span>
+          </div>
+        )}
+
+        <div className="flex h-full items-end gap-1 md:gap-1.5">
+          {distribution.map((count, i) => {
+            const empty = count === 0
+            const active = hover === i
+            return (
+              <button
+                key={i}
+                type="button"
+                onPointerEnter={() => setHover(i)}
+                onFocus={() => setHover(i)}
+                onBlur={() => setHover(null)}
+                aria-label={`${count} rated ${i + 1} out of 10`}
+                className="group/col flex h-full flex-1 cursor-default items-end rounded-t-[3px]"
+              >
+                <span
+                  className={cn(
+                    'w-full rounded-t-[3px] transition-[height,opacity,background-color]',
+                    'duration-[700ms] ease-[var(--ease-out-expo)]',
+                    // Each branch names exactly one background and one opacity.
+                    // Layering an `active &&` override on top would put two
+                    // conflicting utilities of equal specificity on the same
+                    // element, where the winner is decided by stylesheet order
+                    // rather than by intent.
+                    empty
+                      ? active
+                        ? 'bg-ink-3/30 opacity-100'
+                        : 'bg-ink-3/15 opacity-100'
+                      : cn(
+                          fill,
+                          active || i + 1 >= 8
+                            ? 'opacity-100'
+                            : i + 1 >= 5
+                              ? 'opacity-70'
+                              : 'opacity-45',
+                        ),
+                  )}
+                  style={{ height: empty ? 3 : `${Math.max(6, (count / max) * 100)}%` }}
+                />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Axis. The digits are the scale that is stored; the stars underneath
+          are the scale that is shown everywhere else. Printing both, aligned,
+          is what makes the two read as one thing. */}
+      <div className="mt-2 border-t border-line pt-2">
+        <div className="flex gap-1 md:gap-1.5">
+          {distribution.map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                'font-mono-num flex-1 text-center text-[0.625rem] transition-colors duration-200',
+                hover === i ? 'text-ink' : 'text-ink-3',
+              )}
+            >
+              {i + 1}
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-1 flex gap-1 md:gap-1.5" aria-hidden>
+          {[0, 1, 2, 3, 4].map((s) => (
+            <span key={s} className="flex flex-[2] items-center justify-center">
+              <svg viewBox="0 0 24 24" className="size-2.5 text-ink-3/45">
+                <path
+                  d="M12 1.9l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 16.92l-5.88 3.09 1.12-6.55L2.48 8.82l6.58-.96z"
+                  fill="currentColor"
+                />
+              </svg>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {footer && (
+        <div className="mt-4 flex items-baseline justify-between gap-4">
+          <span className="label-cat label-cat-plain">
+            {total} {total === 1 ? 'score' : 'scores'}
+          </span>
+          <span className="label-cat label-cat-plain">
+            {verdict(mean)}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * One honest sentence about the shape, not a compliment. "Generous" and
+ * "exacting" are descriptions; "great taste!" would be filler.
+ */
+function verdict(mean: number | null): string {
+  if (mean == null) return ''
+  if (mean >= 8.5) return 'generous'
+  if (mean >= 7) return 'warm'
+  if (mean >= 5.5) return 'even-handed'
+  return 'exacting'
+}

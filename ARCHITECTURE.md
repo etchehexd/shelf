@@ -14,7 +14,7 @@ There are **two worlds of data**, and they are never mixed.
 | Join key | `mediaId` (AniList numeric id) | `media_id` |
 
 Supabase stores **only World B**. No anime metadata is ever copied into Postgres —
-that would mean owning a stale mirror of someone else's catalogue in exchange for nothing.
+that would mean owning a stale mirror of someone else's catalog in exchange for nothing.
 A row in `entries` is `(user_id, media_id, status, progress, score, …)` and that is all.
 
 ```
@@ -134,10 +134,23 @@ Full schema in [`supabase/migrations/0001_initial_schema.sql`](supabase/migratio
 
 ### Ratings
 
-One column: `entries.score numeric(3,1)`, `0.5–10.0` in `0.5` steps, enforced by a check
-constraint. `Stars` renders it as five stars where one star = 2 points, so a half-star
-click maps exactly onto a half-point score. There is no second scale and no conversion
-anywhere — "5 stars" and "10-point" are the same field viewed two ways.
+One column: `entries.score smallint`, a whole number `1–10`, enforced by a check constraint.
+`Rating` renders it as five stars where one star = 2 points, so every score has an exact
+picture — 7 is three and a half stars. There is no second scale and no conversion anywhere;
+"five stars" and "out of ten" are the same field viewed two ways.
+
+Stars are the *only* rendering of a personal score in the product. A bare numeral in a
+poster corner — which is what this used to be — is unreadable at a glance and, worse,
+indistinguishable from the community score, the episode count and the rank that share that
+artwork. The community number is a different shape, a different scale and one of four cool
+color bands (`--score-hi/good/fair/weak`), deliberately never ember, so the two can't be
+confused from across the room. See DESIGN.md §The two scores.
+
+A score is a verdict on the finished work, so it is only valid on a completed entry. That
+rule is enforced three times over, because each layer can be reached without the others: the
+UI gates every affordance on `canRate(status)`, `setScore` clamps and rounds whatever it is
+handed, and the database carries `entries_score_needs_completion` for anything arriving from
+a bulk import or another client.
 
 ### Rankings — global *and* per-collection
 
@@ -145,7 +158,7 @@ Deliberately independent of score, which is the whole point: a shelf of 10/10s s
 a #1.
 
 Both use a **fractional index** (`position double precision`). Dropping a row between two
-neighbours writes the midpoint `(prev + next) / 2` — one row updated, not the whole list
+neighbors writes the midpoint `(prev + next) / 2` — one row updated, not the whole list
 renumbered. Display rank comes from `row_number()`, so it always reads 1..n even though
 stored positions are sparse. A normalization pass reindexes when gaps get too small for
 float precision.
@@ -174,7 +187,7 @@ a private profile and still share one collection by link.
 
 `unlisted` is readable by anyone holding the link but excluded from listing queries — the
 distinction is enforced client-side in *which query runs*, not in RLS, because "hard to
-find" is a product behaviour and "not allowed" is a security one. Only `private` is a
+find" is a product behavior and "not allowed" is a security one. Only `private` is a
 security boundary.
 
 `profile_is_public()` is `SECURITY DEFINER` specifically so that policies on `profiles` can
@@ -233,15 +246,26 @@ answer than the one AniList already computed.
 ```
 /                       Dashboard
 /library                Library        ?kind=anime&status=current&view=grid
+/rankings               Rankings       ?kind=anime
 /media/:id              Media page
 /collections            Collections index
 /collections/:id        Collection detail
 /discover               Discover       ?q=
-/profile                Your profile
+/profile                Your profile   (signed in only, when sync is configured)
 /u/:handle              Someone else's public profile
 /settings               Settings + sync status
 /auth                   Sign in / sign up
 ```
+
+`/rankings` is its own route rather than a Library view mode. Ordering by taste and tracking
+progress are different activities with different gestures — one is drag-and-drop over a
+whole ordered list, the other is `+1` on a single row — and sharing a page meant neither got
+the space it needed.
+
+**Every route works signed out.** `/profile` is the sole exception and only when sync is
+configured: with no session there is no identity for it to be *of*. Nothing else in the
+product is gated, so guest mode is the normal mode rather than a degraded one — the same
+principle as local-only sync above, applied to auth.
 
 Filter state lives in the URL query string, not component state, so any library view is
 linkable and survives reload and back-navigation.
@@ -261,7 +285,8 @@ src/
     store/        index · entries · collections · rankings · activity · profile · prefs
     selectors/    stats, activity grouping, recommendations, affinity
   features/
-    dashboard/  library/  media/  collections/  discover/  profile/  tracking/
+    dashboard/  library/  rankings/  media/  collections/  discover/  profile/  tracking/
+    onboarding/   first run + the importers
   lib/            accent, dates, format, cn, ids
 supabase/
   migrations/     versioned SQL — schema, constraints, RLS
@@ -272,15 +297,61 @@ internals — shared pieces move to `design/` or `features/tracking/` (the quick
 surface every page reuses). Repositories in `data/supabase/` are the only files that know
 SQL table names.
 
+### First run
+
+A new account starts **empty** — and empty now means empty. There is no sample library: a
+shelf full of someone else's taste is the fastest way to make a personal product feel like a
+demo, and every recommendation the app makes is derived from your own scores, so seeded data
+poisons the whole page.
+
+The profile is empty on the same principle. `profiles.display_name` defaults to `''` and
+`handle_new_user()` inserts `''` rather than deriving a name from the email's local part;
+the local `emptyProfile` carries no handle, name, bio or genres either. A generated handle
+(`user_<12 hex>`) is unavoidable — it is unique, format-constrained and needed for links —
+but it is an identifier, not an identity, and nothing else is guessed on the user's behalf.
+
+Two escape hatches exist for state that predates that rule:
+
+- the persisted store's **v2 → v3 migration discards local state outright** rather than
+  translating it. Anything carrying the old seeded `reader` / "Reader" persona is not a
+  user's data with a wrong name attached — it accumulated *under* a persona nobody chose.
+  Remote rows are untouched, so signing in re-pulls whatever the server still holds.
+- `data/sync/wipe.ts` erases everything, local **and** remote, and resets `onboarded`. It
+  clears the outbox *first*: a queue still holding upserts for rows about to be deleted
+  would helpfully recreate them seconds later, which is the classic way a "delete
+  everything" button quietly does nothing.
+
+`features/onboarding/` owns that first screen. Its **import step** — not the welcome copy,
+not the confirmation after it — is the only place in the product that names another tracking
+site, for exactly one reason: you cannot ask someone for their list from a service without
+telling them which service. Every other surface is written as though those services do not
+exist.
+
+The one other place the two conventions meet is the wire: the upstream schema spells
+`favourites` the British way, so `queries.ts` **aliases it** to `favorites` in the GraphQL
+document. Nothing downstream — raw shape, normalized type, store, UI, database column —
+carries the other spelling.
+
+- `import.ts` — `importFromAniList(username)` reads a public list in one request;
+  `importFromMal(xml)` parses a MyAnimeList export and resolves its MAL ids to AniList ids
+  in aliased batches of 40. Both funnel through one `toEntry()` that re-applies the app's
+  own rules on the way in (progress clamped to the real total, scores kept only on
+  completed titles).
+- `library.importEntries()` merges without overwriting: anything already on the shelf
+  wins, and no activity is written — three hundred "added" lines would bury the diary on
+  day one.
+
+Past onboarding, no screen in the app names where anything came from.
+
 ---
 
 ## Performance
 
 - Route-level `lazy()` splitting; media page and collection detail are the heavy chunks.
 - Long grids use `content-visibility: auto` with `contain-intrinsic-size` rather than a
-  virtualiser — most of the win, none of the scroll-restoration bugs.
+  virtualizer — most of the win, none of the scroll-restoration bugs.
 - Cover images are `loading="lazy"`, `decoding="async"`, aspect-locked to prevent layout
-  shift, and blur up from the artwork colour.
+  shift, and blur up from the artwork color.
 - Selectors memoized with `useShallow`; the in-memory activity window is capped so derived
   stats stay bounded regardless of how large the table grows.
 - Framer Motion's `LayoutGroup` drives the segmented-control thumb and shelf transitions on

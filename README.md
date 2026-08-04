@@ -5,7 +5,7 @@ A cozy digital bookshelf that understands your taste.
 Shelf is a personal library for anime, manga and light novels — tracking, rating, ranking,
 collecting. It is not a MAL or AniList clone. The reference points are Letterboxd (media
 diary, ratings, identity), Pinterest (visual collections, personal taste) and Spotify
-(polished interactions, personalisation, statistics).
+(polished interactions, personalization, statistics).
 
 The design rule the whole app follows: **the UI is a quiet room; the artwork is the light.**
 
@@ -59,7 +59,7 @@ rewriting git history.
 
 ## Documentation
 
-- [DESIGN.md](DESIGN.md) — the design system: colour, type, space, motion, component
+- [DESIGN.md](DESIGN.md) — the design system: color, type, space, motion, component
   inventory, and a layout sketch for every page.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the two-world data model, why writes are local-first
   with a sync outbox, fractional indexing for rankings, and the RLS model.

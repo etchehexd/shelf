@@ -70,7 +70,7 @@ export function Dialog({
           >
             <header className="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
               <div className="min-w-0">
-                <h2 className="font-display text-display-sm text-ink">{title}</h2>
+                <h2 className="text-display-sm text-ink">{title}</h2>
                 {description && <p className="mt-1.5 text-body text-ink-2">{description}</p>}
               </div>
               <IconButton

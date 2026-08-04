@@ -85,6 +85,7 @@ export interface MediaSummary {
   averageScore: number | null
   genres: string[]
   isAdult: boolean
+  nextAiringEpisode: AiringEpisode | null
 }
 
 export interface Media extends MediaSummary {
@@ -94,7 +95,7 @@ export interface Media extends MediaSummary {
   source: string | null
   countryOfOrigin: string | null
   popularity: number
-  favourites: number
+  favorites: number
   meanScore: number | null
   siteUrl: string | null
   startDate: FuzzyDate | null
@@ -105,7 +106,6 @@ export interface Media extends MediaSummary {
   staff: StaffMember[]
   relations: Relation[]
   recommendations: Recommendation[]
-  nextAiringEpisode: AiringEpisode | null
 }
 
 /**

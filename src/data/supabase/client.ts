@@ -44,7 +44,7 @@ export interface EntryRow {
   score: number | null
   repeats: number
   note: string | null
-  favourite: boolean
+  favorite: boolean
   started_at: string | null
   finished_at: string | null
   created_at: string
@@ -107,7 +107,7 @@ export interface ProfileRow {
   accent: string | null
   is_public: boolean
   widgets: unknown
-  favourite_genres: string[]
+  favorite_genres: string[]
   created_at: string
   updated_at: string
 }

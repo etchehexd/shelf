@@ -23,14 +23,20 @@ import {
   Avatar,
   BarRow,
   Button,
+  buttonClasses,
   Card,
   CoverImage,
+  CoverStack,
   Dialog,
+  Eyebrow,
   Field,
   Input,
   Pill,
   Rail,
+  Rating,
+  ScoreHistogram,
   SectionHeader,
+  ShelfLine,
   StatTile,
   Switch,
   Textarea,
@@ -39,8 +45,9 @@ import {
 import { useMediaMap } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
 import { KIND_LABEL, type MediaKind, type MediaSummary } from '@/data/anilist/types'
-import { useLibrary } from '@/data/store/library'
+import { useLibrary, nameOf } from '@/data/store/library'
 import { usePrefs } from '@/data/store/prefs'
+import { useAuth } from '@/data/supabase/auth'
 import {
   genreAffinity,
   groupByDay,
@@ -53,7 +60,7 @@ import {
   useRatingDistribution,
   useTrackedIds,
 } from '@/data/store/selectors'
-import { WIDGET_LABEL, type WidgetConfig, type WidgetId } from '@/data/store/types'
+import { WIDGET_LABEL, mergeWidgets, type WidgetConfig, type WidgetId } from '@/data/store/types'
 import { ShelfCover } from '@/features/tracking/cards'
 import { cn } from '@/lib/cn'
 import { dayLabel } from '@/lib/dates'
@@ -62,6 +69,7 @@ import { compactNumber, duration, pluralize, scoreText } from '@/lib/format'
 export default function ProfilePage() {
   const profile = useLibrary((s) => s.profile)
   const setWidgets = useLibrary((s) => s.setWidgets)
+  const { session, enabled } = useAuth()
 
   const [editingProfile, setEditingProfile] = useState(false)
   const [arranging, setArranging] = useState(false)
@@ -69,6 +77,9 @@ export default function ProfilePage() {
   const trackedIds = useTrackedIds()
   const { map } = useMediaMap(trackedIds)
   const entries = useAllEntries()
+
+  // Fold in any widgets added since this profile was last saved.
+  const widgets = useMemo(() => mergeWidgets(profile.widgets), [profile.widgets])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -78,92 +89,133 @@ export default function ProfilePage() {
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const from = profile.widgets.findIndex((w) => w.id === active.id)
-    const to = profile.widgets.findIndex((w) => w.id === over.id)
+    const from = widgets.findIndex((w) => w.id === active.id)
+    const to = widgets.findIndex((w) => w.id === over.id)
     if (from === -1 || to === -1) return
-    setWidgets(arrayMove(profile.widgets, from, to))
+    setWidgets(arrayMove(widgets, from, to))
   }
 
   const toggle = (id: WidgetId) =>
-    setWidgets(profile.widgets.map((w) => (w.id === id ? { ...w, visible: !w.visible } : w)))
+    setWidgets(widgets.map((w) => (w.id === id ? { ...w, visible: !w.visible } : w)))
 
   const share = async () => {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/u/${profile.handle}`)
       toast({
-        message: profile.isPublic ? 'Profile link copied' : 'Link copied — your profile is private',
+        message: profile.isPublic ? 'Link copied' : 'Link copied — your room is private, though',
       })
     } catch {
       toast({ message: 'Could not copy the link', tone: 'danger' })
     }
   }
 
-  const visible = profile.widgets.filter((w) => w.visible)
+  const visible = widgets.filter((w) => w.visible)
+  const affinity = useMemo(() => genreAffinity(entries, map, 3), [entries, map])
+
+  // A profile is a room you show other people. Signed out there is nobody whose
+  // room it is, no link to share it at, and nothing to keep it in sync — so the
+  // page says that plainly instead of rendering an anonymous shell. Every other
+  // part of the app stays completely open; this is the only gate in the product.
+  if (enabled && !session) return <SignedOutProfile />
 
   return (
-    <div className="-mx-5 -mt-6 md:-mx-10">
+    <div className="bleed-x -mt-6">
       {/* banner ------------------------------------------------------------ */}
-      <div className="relative h-40 overflow-hidden bg-surface-2 md:h-56">
+      <div className="relative h-44 overflow-hidden bg-surface-2 md:h-64">
         {profile.bannerUrl ? (
           <img src={profile.bannerUrl} alt="" className="size-full object-cover" />
         ) : (
-          <div className="size-full bg-gradient-to-br from-accent-quiet via-surface-2 to-surface-3" />
+          <CoverWall map={map} />
         )}
         <div
           className="absolute inset-0"
           style={{
             background:
-              'linear-gradient(to bottom, rgb(var(--scrim) / 0.05), rgb(var(--scrim) / 0.9))',
+              'linear-gradient(to bottom, rgb(var(--scrim) / 0.25), rgb(var(--scrim) / 0.86) 60%, rgb(var(--scrim) / 1))',
           }}
         />
       </div>
 
       <div className="mx-auto w-full max-w-(--container-page) px-5 md:px-10">
         {/* header ---------------------------------------------------------- */}
-        <header className="relative -mt-14 flex flex-wrap items-end justify-between gap-6 md:-mt-16">
-          <div className="flex items-end gap-5">
-            <Avatar src={profile.avatarUrl} name={profile.displayName} size="xl" ring />
-            <div className="pb-1">
-              <h1 className="font-display text-display-lg text-ink">{profile.displayName}</h1>
-              <p className="text-body text-ink-3">@{profile.handle}</p>
+        <header className="relative -mt-16 md:-mt-20">
+          <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+            <div className="flex items-end gap-5">
+              <Avatar src={profile.avatarUrl} name={nameOf(profile)} size="xl" ring />
+              <div className="pb-1">
+                {/* A blank profile says so, and the heading is the button that
+                    fixes it. An account that has just been made has no name
+                    because nobody has given it one yet — not because something
+                    failed to load. */}
+                {profile.displayName.trim() ? (
+                  <h1 className="text-display-lg text-ink">{profile.displayName}</h1>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditingProfile(true)}
+                    className="text-display-lg text-ink-3 transition-colors hover:text-accent"
+                  >
+                    Name this room
+                  </button>
+                )}
+                {profile.handle.trim() && (
+                  <p className="label-cat label-cat-plain mt-1.5">@{profile.handle}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pb-1">
+              {profile.handle.trim() && (
+                <Button icon={<Share2 className="size-4" />} onClick={share}>
+                  Share
+                </Button>
+              )}
+              <Button
+                icon={<GripVertical className="size-4" />}
+                onClick={() => setArranging((v) => !v)}
+                aria-pressed={arranging}
+              >
+                {arranging ? 'Done' : 'Arrange'}
+              </Button>
+              <Button icon={<Pencil className="size-4" />} onClick={() => setEditingProfile(true)}>
+                Edit
+              </Button>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 pb-1">
-            <Button icon={<Share2 className="size-4" />} onClick={share}>
-              Share
-            </Button>
-            <Button
-              icon={<GripVertical className="size-4" />}
-              onClick={() => setArranging((v) => !v)}
-              aria-pressed={arranging}
-            >
-              {arranging ? 'Done' : 'Arrange'}
-            </Button>
-            <Button icon={<Pencil className="size-4" />} onClick={() => setEditingProfile(true)}>
-              Edit profile
-            </Button>
-          </div>
+          {profile.bio && (
+            <p className="prose-width mt-6 text-body text-ink-2">{profile.bio}</p>
+          )}
+
+          {/* The taste line: what this person is, in six words of data. */}
+          {affinity.length > 0 && (
+            <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <Eyebrow>Genres</Eyebrow>
+              {affinity.map((g) => (
+                <Link key={g.genre} to={`/discover?genre=${encodeURIComponent(g.genre)}`}>
+                  <Pill tone="accent" size="sm">
+                    {g.genre}
+                  </Pill>
+                </Link>
+              ))}
+              {profile.favoriteGenres.map((g) => (
+                <Pill key={g} size="sm">
+                  {g}
+                </Pill>
+              ))}
+            </div>
+          )}
+
+          <ShelfLine className="mt-8" />
         </header>
 
-        {profile.bio && <p className="mt-5 max-w-prose text-body text-ink-2">{profile.bio}</p>}
-
-        {profile.favouriteGenres.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {profile.favouriteGenres.map((g) => (
-              <Pill key={g} tone="accent" size="sm">
-                {g}
-              </Pill>
-            ))}
-          </div>
-        )}
-
         {/* widgets --------------------------------------------------------- */}
-        <div className="mt-14 space-y-14 pb-8">
+        <div className="mt-12 space-y-16 pb-10">
           {arranging ? (
-            <Card padding="compact">
-              <p className="mb-4 text-label font-medium text-ink">
-                Drag to reorder. Toggle the eye to hide a section.
+            <Card padding="compact" radius="lg" className="max-w-xl">
+              <Eyebrow className="mb-4">Move the furniture</Eyebrow>
+              <p className="mb-5 text-body text-ink-2">
+                Drag to reorder. Hide anything you'd rather not show.
               </p>
               <DndContext
                 sensors={sensors}
@@ -172,11 +224,11 @@ export default function ProfilePage() {
                 modifiers={[restrictToVerticalAxis, restrictToParentElement]}
               >
                 <SortableContext
-                  items={profile.widgets.map((w) => w.id)}
+                  items={widgets.map((w) => w.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <ul className="space-y-2">
-                    {profile.widgets.map((w) => (
+                    {widgets.map((w) => (
                       <WidgetRow key={w.id} widget={w} onToggle={() => toggle(w.id)} />
                     ))}
                   </ul>
@@ -195,6 +247,68 @@ export default function ProfilePage() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * What a profile is when nobody has claimed it.
+ *
+ * Not a locked door and not a paywall — a statement of what this one section
+ * needs that the rest of the app doesn't. It leads with what already works
+ * without an account, because "sign in to continue" on a product that does not
+ * require an account is a lie the user finds out about later.
+ */
+function SignedOutProfile() {
+  const entries = useAllEntries()
+
+  return (
+    <div className="mx-auto max-w-xl py-16">
+      <Eyebrow className="mb-5">Profile</Eyebrow>
+      <h1 className="text-balance text-display-lg text-ink">A room needs an owner.</h1>
+      <p className="prose-width mt-4 text-body text-ink-2">
+        Your profile is the one part of Shelf that means nothing without an account — it's the
+        page you'd share, the statistics you'd keep across devices, the name on the door.
+      </p>
+
+      <ShelfLine className="mt-9" />
+
+      <p className="mt-9 text-body text-ink-2">
+        {entries.length > 0
+          ? `Everything you've tracked so far — ${pluralize(entries.length, 'title')} — stays exactly where it is, on this device. Signing in brings it with you.`
+          : 'Everything else works right now, signed out. Track, rank, collect — it all stays on this device until you decide otherwise.'}
+      </p>
+
+      <div className="mt-8 flex flex-wrap gap-3">
+        <Link to="/auth" className={buttonClasses('primary', 'lg')}>
+          Sign in or create an account
+        </Link>
+        <Link to="/library" className={buttonClasses('secondary', 'lg')}>
+          Back to your library
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The default banner: a wall of your own covers, cropped to a strip and dimmed.
+ * A profile with no banner should still look like it belongs to somebody.
+ */
+function CoverWall({ map }: { map: Map<number, MediaSummary> }) {
+  const covers = useMemo(() => [...map.values()].slice(0, 14), [map])
+
+  if (covers.length === 0) {
+    return <div className="size-full bg-gradient-to-br from-accent-quiet via-surface-2 to-surface-3" />
+  }
+
+  return (
+    <div className="flex size-full">
+      {covers.map((m) => (
+        <div key={m.id} className="h-full flex-1 overflow-hidden">
+          {m.coverImage && <img src={m.coverImage} alt="" className="size-full object-cover" />}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function WidgetRow({ widget, onToggle }: { widget: WidgetConfig; onToggle: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -248,6 +362,8 @@ function Widget({
   entries: ReturnType<typeof useAllEntries>
 }) {
   switch (id) {
+    case 'obsession':
+      return <ObsessionWidget map={map} />
     case 'currently':
       return <CurrentlyWidget map={map} />
     case 'top-ranked':
@@ -260,11 +376,64 @@ function Widget({
       return <DistributionWidget />
     case 'genre-affinity':
       return <AffinityWidget entries={entries} map={map} />
+    case 'eras':
+      return <ErasWidget entries={entries} map={map} />
+    case 'year-in-review':
+      return <YearWidget entries={entries} map={map} />
     case 'recent-activity':
       return <ActivityWidget />
-    case 'favourites':
-      return <FavouritesWidget map={map} />
+    case 'favorites':
+      return <FavoritesWidget map={map} />
   }
+}
+
+/**
+ * The single title this person is deepest into right now, given the size that
+ * an obsession deserves. It is the first thing in the room for a reason.
+ */
+function ObsessionWidget({ map }: { map: Map<number, MediaSummary> }) {
+  const list = useContinueList(1)
+  const language = usePrefs((s) => s.titleLanguage)
+  const entry = list[0]
+  const media = entry ? map.get(entry.mediaId) : undefined
+
+  if (!entry || !media) return null
+
+  return (
+    <section className="space-y-4">
+      <Eyebrow>Most watched lately</Eyebrow>
+      <Link
+        to={`/media/${media.id}`}
+        className="group relative flex items-center gap-6 overflow-hidden rounded-xl border border-line bg-surface-2 p-6 md:gap-9 md:p-8"
+      >
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          {media.bannerImage && (
+            <img src={media.bannerImage} alt="" className="size-full object-cover opacity-25" />
+          )}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(100deg, rgb(var(--scrim) / 0.96), rgb(var(--scrim) / 0.7))',
+            }}
+          />
+        </div>
+
+        <div className="frame-lift relative w-24 shrink-0 md:w-32">
+          <CoverImage src={media.coverImage} alt="" color={media.color} />
+        </div>
+
+        <div className="relative min-w-0">
+          <h3 className="text-balance text-display-md text-ink">
+            {displayTitle(media, language)}
+          </h3>
+          <p className="label-cat label-cat-plain mt-3">
+            {entry.progress} {entry.kind === 'anime' ? 'episodes' : 'chapters'} in
+          </p>
+        </div>
+      </Link>
+    </section>
+  )
 }
 
 function CurrentlyWidget({ map }: { map: Map<number, MediaSummary> }) {
@@ -273,13 +442,16 @@ function CurrentlyWidget({ map }: { map: Map<number, MediaSummary> }) {
 
   return (
     <section className="space-y-5">
-      <SectionHeader eyebrow="Right now" title="Currently watching & reading" size="sm" />
-      <Rail aria-label="Currently watching">
-        {list.map((entry) => {
-          const media = map.get(entry.mediaId)
-          return media ? <ShelfCover key={entry.mediaId} media={media} entry={entry} /> : null
-        })}
-      </Rail>
+      <SectionHeader title="Watching & Reading" size="sm" />
+      <div>
+        <Rail aria-label="Currently watching">
+          {list.map((entry) => {
+            const media = map.get(entry.mediaId)
+            return media ? <ShelfCover key={entry.mediaId} media={media} entry={entry} /> : null
+          })}
+        </Rail>
+        <ShelfLine className="mt-2.5" />
+      </div>
     </section>
   )
 }
@@ -293,8 +465,7 @@ function TopRankedWidget({ map }: { map: Map<number, MediaSummary> }) {
   return (
     <section className="space-y-5">
       <SectionHeader
-        eyebrow="Ranked"
-        title={`Your top ${KIND_LABEL[kind].toLowerCase()}`}
+        title={`Your Top ${KIND_LABEL[kind]}`}
         size="sm"
         action={
           <div className="flex gap-1">
@@ -304,8 +475,8 @@ function TopRankedWidget({ map }: { map: Map<number, MediaSummary> }) {
                 type="button"
                 onClick={() => setKind(k)}
                 className={cn(
-                  'rounded-sm px-2 py-1 text-meta',
-                  kind === k ? 'bg-surface-2 text-ink' : 'text-ink-3 hover:text-ink-2',
+                  'rounded-full px-2.5 py-1 text-meta transition-colors',
+                  kind === k ? 'bg-accent text-accent-ink' : 'text-ink-3 hover:text-ink',
                 )}
               >
                 {KIND_LABEL[k]}
@@ -317,11 +488,11 @@ function TopRankedWidget({ map }: { map: Map<number, MediaSummary> }) {
 
       {ids.length === 0 ? (
         <p className="text-body text-ink-3">
-          Nothing ranked yet. Ranking is separate from scoring — it's for ordering the ones you
-          already love.
+          Nothing ordered yet. Ranking is separate from scoring — it's for putting the ones you
+          already love in a line.
         </p>
       ) : (
-        <ol className="grid gap-2 sm:grid-cols-2">
+        <ol className="grid gap-1.5 sm:grid-cols-2">
           {ids.slice(0, 10).map((mediaId, i) => {
             const media = map.get(mediaId)
             const entry = entries[mediaId]
@@ -329,24 +500,23 @@ function TopRankedWidget({ map }: { map: Map<number, MediaSummary> }) {
               <li key={mediaId}>
                 <Link
                   to={`/media/${mediaId}`}
-                  className="flex items-center gap-4 rounded-md p-2 transition-colors hover:bg-surface-2"
+                  className="group/rank flex items-center gap-4 rounded-md p-2 transition-colors hover:bg-surface-2"
                 >
-                  <span className="tnum w-6 shrink-0 text-right font-display text-display-sm text-ink-3">
+                  <span
+                    className="font-mono-num w-7 shrink-0 text-right text-display-sm leading-none font-semibold text-ink-3/50 transition-colors group-hover/rank:text-accent"
+                    aria-hidden
+                  >
                     {i + 1}
                   </span>
                   {media && (
                     <span className="w-9 shrink-0">
-                      <CoverImage src={media.coverImage} alt="" color={media.color} rounded="sm" />
+                      <CoverImage src={media.coverImage} alt="" color={media.color} flat />
                     </span>
                   )}
                   <span className="min-w-0 flex-1 truncate text-label text-ink">
                     {media ? displayTitle(media, language) : '…'}
                   </span>
-                  {entry?.score != null && (
-                    <span className="tnum shrink-0 text-meta text-ink-3">
-                      {scoreText(entry.score)}
-                    </span>
-                  )}
+                  {entry?.score != null && <Rating value={entry.score} size="xs" />}
                 </Link>
               </li>
             )
@@ -367,11 +537,10 @@ function CollectionsWidget({ map }: { map: Map<number, MediaSummary> }) {
   return (
     <section className="space-y-5">
       <SectionHeader
-        eyebrow="Collections"
-        title="Shelves worth sharing"
+        title="Collections"
         size="sm"
         action={
-          <Link to="/collections" className="text-label text-ink-3 hover:text-ink">
+          <Link to="/collections" className="label-cat label-cat-plain hover:text-ink">
             All collections
           </Link>
         }
@@ -381,7 +550,7 @@ function CollectionsWidget({ map }: { map: Map<number, MediaSummary> }) {
           const covers = items
             .filter((i) => i.collectionId === c.id)
             .sort((a, b) => a.position - b.position)
-            .slice(0, 3)
+            .slice(0, 4)
             .map((i) => map.get(i.mediaId))
             .filter(Boolean) as MediaSummary[]
 
@@ -389,17 +558,19 @@ function CollectionsWidget({ map }: { map: Map<number, MediaSummary> }) {
             <Link
               key={c.id}
               to={`/collections/${c.id}`}
-              className="group rounded-lg border border-line bg-surface p-4 transition-[transform,border-color] hover:-translate-y-[3px] hover:border-line-strong"
+              className="group rounded-xl border border-line bg-surface p-5 transition-[transform,border-color,box-shadow] duration-[420ms] ease-[var(--ease-out-expo)] hover:-translate-y-1.5 hover:border-line-strong hover:shadow-md"
             >
-              <div className="flex gap-1.5">
-                {covers.map((m) => (
-                  <span key={m.id} className="w-1/3">
-                    <CoverImage src={m.coverImage} alt="" color={m.color} rounded="sm" />
-                  </span>
-                ))}
+              <div className="flex justify-center">
+                <CoverStack
+                  covers={covers.map((m) => ({ id: m.id, src: m.coverImage, color: m.color }))}
+                  width={58}
+                  offset={24}
+                />
               </div>
-              <h3 className="mt-3 font-display text-display-sm text-ink">{c.name}</h3>
-              <p className="tnum text-meta text-ink-3">
+              <h3 className="mt-5 text-display-sm text-ink transition-colors group-hover:text-accent">
+                {c.name}
+              </h3>
+              <p className="label-cat label-cat-plain mt-2">
                 {pluralize(items.filter((i) => i.collectionId === c.id).length, 'title')}
               </p>
             </Link>
@@ -421,16 +592,13 @@ function StatisticsWidget({
 
   return (
     <section className="space-y-5">
-      <SectionHeader eyebrow="Statistics" title="The shape of your library" size="sm" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <SectionHeader title="Statistics" size="sm" />
+      <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile label="Titles" value={compactNumber(totals.titles)} />
         <StatTile label="Episodes" value={compactNumber(totals.episodes)} />
         <StatTile label="Chapters" value={compactNumber(totals.chapters)} />
-        <StatTile label="Time watched" value={duration(totals.minutes)} hint="approximate" />
-        <StatTile
-          label="Mean score"
-          value={totals.meanScore ? scoreText(totals.meanScore) : '—'}
-        />
+        <StatTile label="Time spent" value={duration(totals.minutes)}  />
+        <StatTile label="Average" value={totals.meanScore ? scoreText(totals.meanScore) : '—'} />
       </div>
     </section>
   )
@@ -438,29 +606,14 @@ function StatisticsWidget({
 
 function DistributionWidget() {
   const distribution = useRatingDistribution()
-  const max = Math.max(1, ...distribution)
   const total = distribution.reduce((a, b) => a + b, 0)
 
   if (total === 0) return null
 
   return (
     <section className="space-y-5">
-      <SectionHeader eyebrow="Ratings" title="How you score" size="sm" />
-      <div className="flex h-28 items-end gap-2">
-        {distribution.map((count, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-2">
-            <span className="tnum text-micro text-ink-3">{count || ''}</span>
-            <div
-              className="w-full rounded-t-[3px] bg-accent"
-              style={{
-                height: `${Math.max(count === 0 ? 2 : 8, (count / max) * 100)}%`,
-                opacity: count === 0 ? 0.18 : 1,
-              }}
-            />
-            <span className="tnum text-micro text-ink-3">{i + 1}</span>
-          </div>
-        ))}
-      </div>
+      <SectionHeader title="Your Scores" size="sm" />
+      <ScoreHistogram distribution={distribution} height={148} />
     </section>
   )
 }
@@ -478,9 +631,7 @@ function AffinityWidget({
   return (
     <section className="space-y-5">
       <SectionHeader
-        eyebrow="Taste"
-        title="Genre affinity"
-        description="Ranked by how highly you rate them, not by how many you've seen."
+        title="Genres"
         size="sm"
       />
       <div className="max-w-xl space-y-2.5">
@@ -498,6 +649,131 @@ function AffinityWidget({
   )
 }
 
+/**
+ * The years your favorites came out. A quiet, honest way of showing whether
+ * someone lives in the nineties or only watches what's airing now.
+ */
+function ErasWidget({
+  entries,
+  map,
+}: {
+  entries: ReturnType<typeof useAllEntries>
+  map: Map<number, MediaSummary>
+}) {
+  const years = useMemo(() => {
+    const buckets = new Map<number, number>()
+    for (const entry of entries) {
+      const year = map.get(entry.mediaId)?.seasonYear
+      if (!year) continue
+      buckets.set(year, (buckets.get(year) ?? 0) + 1)
+    }
+    return [...buckets.entries()].sort((a, b) => a[0] - b[0])
+  }, [entries, map])
+
+  if (years.length < 3) return null
+
+  const max = Math.max(...years.map(([, n]) => n))
+  const best = years.reduce((a, b) => (b[1] > a[1] ? b : a))
+
+  return (
+    <section className="space-y-5">
+      <SectionHeader
+        title="By Year"
+        size="sm"
+        action={<span className="label-cat label-cat-plain">peak {best[0]}</span>}
+      />
+      <div className="flex max-w-2xl items-end gap-1 overflow-x-auto pb-1">
+        {years.map(([year, count]) => (
+          <div key={year} className="group/era flex min-w-[1.75rem] flex-1 flex-col items-center gap-2">
+            <div
+              className={cn(
+                'w-full rounded-t-[2px] transition-colors duration-300',
+                year === best[0] ? 'bg-accent' : 'bg-ink-3/25 group-hover/era:bg-accent/60',
+              )}
+              style={{ height: `${Math.max(6, (count / max) * 72)}px` }}
+              title={`${count} from ${year}`}
+            />
+            <span className="font-mono-num text-[0.5625rem] text-ink-3">
+              {String(year).slice(2)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** This year, as a sentence and four numbers. */
+function YearWidget({
+  entries,
+  map,
+}: {
+  entries: ReturnType<typeof useAllEntries>
+  map: Map<number, MediaSummary>
+}) {
+  const year = new Date().getFullYear()
+  const start = new Date(year, 0, 1).getTime()
+
+  const stats = useMemo(() => {
+    let finished = 0
+    let started = 0
+    let rated = 0
+    let scoreSum = 0
+    let best: { title: number; score: number } | null = null
+
+    for (const entry of entries) {
+      if (entry.finishedAt && new Date(entry.finishedAt).getTime() >= start) finished += 1
+      if (entry.createdAt >= start) started += 1
+      if (entry.score != null && entry.updatedAt >= start) {
+        rated += 1
+        scoreSum += entry.score
+        if (!best || entry.score > best.score) best = { title: entry.mediaId, score: entry.score }
+      }
+    }
+
+    return { finished, started, rated, mean: rated > 0 ? scoreSum / rated : null, best }
+  }, [entries, start])
+
+  if (stats.finished + stats.started === 0) return null
+
+  const bestMedia = stats.best ? map.get(stats.best.title) : undefined
+
+  return (
+    <section className="space-y-5">
+      <SectionHeader title={`${year} So Far`} size="sm" />
+      <Card tone="sunk" radius="lg" padding="compact">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+          <StatTile label="Finished" value={stats.finished} />
+          <StatTile label="Started" value={stats.started} />
+          <StatTile label="Rated" value={stats.rated} />
+          <StatTile
+            label="Average"
+            value={stats.mean != null ? stats.mean.toFixed(1) : '—'}
+          />
+        </div>
+
+        {bestMedia && stats.best && (
+          <Link
+            to={`/media/${bestMedia.id}`}
+            className="group mt-7 flex items-center gap-4 border-t border-line pt-5"
+          >
+            <div className="w-11 shrink-0">
+              <CoverImage src={bestMedia.coverImage} alt="" color={bestMedia.color} />
+            </div>
+            <div className="min-w-0">
+              <Eyebrow className="mb-1.5">Best thing all year</Eyebrow>
+              <p className="truncate text-title font-semibold text-ink transition-colors group-hover:text-accent">
+                {bestMedia.title.english ?? bestMedia.title.romaji}
+              </p>
+            </div>
+            <Rating value={stats.best.score} size="sm" showValue className="ml-auto shrink-0" />
+          </Link>
+        )}
+      </Card>
+    </section>
+  )
+}
+
 function ActivityWidget() {
   const activity = useActivity(24)
   const days = useMemo(() => groupByDay(activity).slice(0, 3), [activity])
@@ -505,11 +781,13 @@ function ActivityWidget() {
 
   return (
     <section className="space-y-5">
-      <SectionHeader eyebrow="Lately" title="Recent activity" size="sm" />
-      <div className="space-y-5">
+      <SectionHeader title="Activity" size="sm" />
+      <div className="max-w-xl space-y-4">
         {days.map(({ day, events }) => (
-          <div key={day}>
-            <p className="mb-1.5 text-micro text-ink-3 uppercase">{dayLabel(day)}</p>
+          <div key={day} className="flex items-baseline gap-4">
+            <Eyebrow tick={false} className="w-24 shrink-0">
+              {dayLabel(day)}
+            </Eyebrow>
             <p className="text-body text-ink-2">
               {pluralize(events.length, 'update')} — {summarize(events.map((e) => e.type))}
             </p>
@@ -520,30 +798,46 @@ function ActivityWidget() {
   )
 }
 
+const ACTIVITY_NOUN: Record<string, string> = {
+  progress: 'episodes logged',
+  status: 'status changes',
+  score: 'verdicts',
+  rank: 'reorderings',
+  collection: 'filings',
+  note: 'notes',
+  added: 'added',
+  removed: 'removed',
+}
+
 function summarize(types: string[]): string {
   const counts = new Map<string, number>()
   for (const t of types) counts.set(t, (counts.get(t) ?? 0) + 1)
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([type, n]) => `${n} ${type}`)
+    .map(([type, n]) => `${n} ${ACTIVITY_NOUN[type] ?? type}`)
     .join(', ')
 }
 
-function FavouritesWidget({ map }: { map: Map<number, MediaSummary> }) {
+function FavoritesWidget({ map }: { map: Map<number, MediaSummary> }) {
   const entries = useAllEntries()
-  const favourites = entries.filter((e) => e.favourite)
-  if (favourites.length === 0) return null
+  const favorites = entries.filter((e) => e.favorite)
+  if (favorites.length === 0) return null
 
   return (
     <section className="space-y-5">
-      <SectionHeader eyebrow="Favourites" title="The ones that stuck" size="sm" />
-      <Rail aria-label="Favourites">
-        {favourites.map((entry) => {
-          const media = map.get(entry.mediaId)
-          return media ? <ShelfCover key={entry.mediaId} media={media} entry={entry} /> : null
-        })}
-      </Rail>
+      <SectionHeader title="Favorites" size="sm" />
+      <div>
+        <Rail aria-label="Favorites">
+          {favorites.map((entry) => {
+            const media = map.get(entry.mediaId)
+            return media ? (
+              <ShelfCover key={entry.mediaId} media={media} entry={entry} width="lg" />
+            ) : null
+          })}
+        </Rail>
+        <ShelfLine className="mt-2.5" />
+      </div>
     </section>
   )
 }
@@ -565,6 +859,8 @@ function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }
   // instead of surfacing as a sync failure minutes later.
   const handleValid = /^[a-z0-9_]{3,24}$/.test(handle)
 
+  // A brand-new profile has no handle at all, so "invalid" must not fire on the
+  // empty string — the field is blank because it has never been filled in.
   const save = () => {
     if (!handleValid || !displayName.trim()) return
     updateProfile({
@@ -575,7 +871,7 @@ function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }
       bannerUrl: bannerUrl.trim() || null,
       isPublic,
     })
-    toast({ message: 'Profile updated' })
+    toast({ message: 'Room updated' })
     onClose()
   }
 
@@ -611,7 +907,7 @@ function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }
         <Field
           label="Handle"
           hint="Lowercase letters, numbers and underscores. 3–24 characters."
-          error={handle && !handleValid ? 'That handle is not valid.' : undefined}
+          error={handle.length > 0 && !handleValid ? 'That handle is not valid.' : undefined}
         >
           {(props) => (
             <Input
@@ -629,7 +925,7 @@ function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }
               value={bio}
               maxLength={280}
               rows={3}
-              placeholder="Slow watcher. Fond of quiet shows."
+              
               onChange={(e) => setBio(e.target.value)}
             />
           )}
@@ -641,7 +937,7 @@ function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }
           )}
         </Field>
 
-        <Field label="Banner URL">
+        <Field label="Banner URL" hint="Leave it empty and your own covers fill the space.">
           {(props) => (
             <Input {...props} value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} />
           )}
@@ -651,7 +947,7 @@ function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }
           checked={isPublic}
           onChange={setIsPublic}
           label="Public profile"
-          description="Lets anyone with your link see your library, ratings and activity. Private collections stay private either way."
+          description="Anyone with your link can see your library, scores and activity."
         />
       </div>
     </Dialog>

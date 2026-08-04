@@ -51,7 +51,7 @@ export interface RawMedia {
   averageScore?: number | null
   meanScore?: number | null
   popularity?: number | null
-  favourites?: number | null
+  favorites?: number | null
   duration?: number | null
   source?: string | null
   countryOfOrigin?: string | null
@@ -129,6 +129,7 @@ export function normalizeSummary(raw: RawMedia): MediaSummary {
     averageScore: raw.averageScore ?? null,
     genres: compact(raw.genres),
     isAdult: raw.isAdult ?? false,
+    nextAiringEpisode: raw.nextAiringEpisode ?? null,
   }
 }
 
@@ -141,7 +142,7 @@ export function normalizeMedia(raw: RawMedia): Media {
     source: raw.source ?? null,
     countryOfOrigin: raw.countryOfOrigin ?? null,
     popularity: raw.popularity ?? 0,
-    favourites: raw.favourites ?? 0,
+    favorites: raw.favorites ?? 0,
     meanScore: raw.meanScore ?? null,
     siteUrl: raw.siteUrl ?? null,
     startDate: hasDate(raw.startDate) ? raw.startDate! : null,
@@ -152,7 +153,6 @@ export function normalizeMedia(raw: RawMedia): Media {
     staff: normalizeStaff(raw),
     relations: normalizeRelations(raw),
     recommendations: normalizeRecommendations(raw),
-    nextAiringEpisode: raw.nextAiringEpisode ?? null,
   }
 }
 

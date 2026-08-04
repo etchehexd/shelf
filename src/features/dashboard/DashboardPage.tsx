@@ -1,79 +1,97 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
-import { BookOpen, Check, ListPlus, Star, Trophy, Tv } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, ListPlus, Star, Trophy, Tv } from 'lucide-react'
 import {
   BarRow,
-  CoverSkeleton,
+  buttonClasses,
+  CoverImage,
+  CoverStack,
   EmptyState,
+  Eyebrow,
+  ProgressBar,
   Rail,
+  Rating,
+  ScoreHistogram,
   Section,
   SectionHeader,
+  ShelfLine,
   Skeleton,
   StatTile,
 } from '@/design'
 import { useMediaMap } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
-import type { MediaSummary } from '@/data/anilist/types'
+import { totalUnits, unitName, type MediaSummary } from '@/data/anilist/types'
 import { usePrefs } from '@/data/store/prefs'
 import {
+  airingQueue,
+  almostDone,
   genreAffinity,
   groupByDay,
   useActivity,
   useAllEntries,
+  useCollectionCoverIds,
+  useCollections,
   useContinueList,
   useRatingDistribution,
   useRecentlyCompleted,
   useTrackedIds,
   useWeekStats,
 } from '@/data/store/selectors'
-import type { ActivityEvent } from '@/data/store/types'
-import { statusLabel } from '@/data/store/types'
-import { ContinueCard, ShelfCover } from '@/features/tracking/cards'
-import { dayLabel, greeting, timeLabel } from '@/lib/dates'
-import { pluralize, scoreText } from '@/lib/format'
+import type { ActivityEvent, Collection } from '@/data/store/types'
+import { FeatureCard, ShelfCover } from '@/features/tracking/cards'
 import { useLibrary } from '@/data/store/library'
+import { airingDayShort, dayLabel, fullDate, greeting, timeLabel } from '@/lib/dates'
+import { pluralize, scoreText } from '@/lib/format'
+import { cn } from '@/lib/cn'
 
 export default function DashboardPage() {
   const profile = useLibrary((s) => s.profile)
   const trackedIds = useTrackedIds()
   const { map, isLoading } = useMediaMap(trackedIds)
 
-  const continueList = useContinueList(10)
-  const completed = useRecentlyCompleted(14)
+  const continueList = useContinueList(9)
+  const completed = useRecentlyCompleted(10)
   const week = useWeekStats()
   const activity = useActivity(60)
   const entries = useAllEntries()
   const distribution = useRatingDistribution()
+  const collections = useCollections()
 
-  const affinity = useMemo(() => genreAffinity(entries, map, 6), [entries, map])
-  const days = useMemo(() => groupByDay(activity).slice(0, 6), [activity])
+  const nearlyDone = useMemo(() => almostDone(entries, map, 3), [entries, map])
+  const airing = useMemo(() => airingQueue(entries, map).slice(0, 12), [entries, map])
+  const affinity = useMemo(() => genreAffinity(entries, map, 5), [entries, map])
+  const days = useMemo(() => groupByDay(activity).slice(0, 4), [activity])
 
-  const today = new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(new Date())
+  const lead = continueList[0]
+  const leadMedia = lead ? map.get(lead.mediaId) : undefined
+  const rest = continueList.slice(1, 4)
 
-  const hasLibrary = entries.length > 0
+  // The covers that stack behind the hero poster — the next few things waiting.
+  const layered = useMemo(
+    () =>
+      continueList
+        .slice(1, 4)
+        .map((e) => map.get(e.mediaId))
+        .filter(Boolean) as MediaSummary[],
+    [continueList, map],
+  )
+
+  // Blank until someone names themselves — the greeting drops the name rather
+  // than inventing one.
+  const firstName = profile.displayName.trim().split(' ')[0] || null
 
   return (
-    <div className="space-y-16">
-      <header className="flex flex-wrap items-baseline justify-between gap-3 pt-2">
-        <h1 className="font-display text-display-lg text-ink">
-          {greeting()}, {profile.displayName.split(' ')[0]}.
-        </h1>
-        <p className="text-body text-ink-3">{today}</p>
-      </header>
+    <div className="space-y-16 pt-1 md:space-y-20">
+      <Masthead name={firstName} week={week} />
 
-      {/* ---------------------------------------------------------- continue */}
+      {/* --------------------------------------------------- continue watching */}
 
       <Section>
         <SectionHeader
-          eyebrow="Continue"
-          title="Pick up where you left off"
+          title="Continue Watching"
           action={
             continueList.length > 0 ? (
-              <Link to="/library?status=current" className="text-label text-ink-3 hover:text-ink">
+              <Link to="/library?status=current" className="label-cat label-cat-plain hover:text-ink">
                 All in progress
               </Link>
             ) : undefined
@@ -81,108 +99,153 @@ export default function DashboardPage() {
         />
 
         {isLoading && continueList.length === 0 ? (
-          <div className="flex gap-5">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-[124px] w-80 shrink-0 rounded-lg" />
-            ))}
+          <div className="grid gap-5 lg:grid-cols-12">
+            <Skeleton className="h-[21rem] rounded-xl lg:col-span-7" />
+            <div className="space-y-3 lg:col-span-5">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-[5.5rem] rounded-lg" />
+              ))}
+            </div>
           </div>
         ) : continueList.length === 0 ? (
           <EmptyState
-            icon={<Tv className="size-7" strokeWidth={1.5} />}
+            icon={<Tv className="size-6" strokeWidth={1.5} />}
             title="Nothing in progress"
-            description={
-              hasLibrary
-                ? 'Start something from your planning list and it will show up here.'
-                : 'Add a few titles and your shelf starts filling itself in.'
-            }
             action={
-              <Link
-                to="/discover"
-                className="inline-flex h-9.5 items-center rounded-md bg-accent px-4 text-label font-medium text-accent-ink hover:bg-accent-hover"
-              >
-                Find something to watch
+              <Link to="/discover" className={buttonClasses('primary', 'md')}>
+                Find something
               </Link>
             }
           />
         ) : (
-          <Rail aria-label="Continue watching and reading">
-            {continueList.map((entry) => {
-              const media = map.get(entry.mediaId)
-              return media ? (
-                <ContinueCard key={entry.mediaId} media={media} entry={entry} />
-              ) : (
-                <Skeleton key={entry.mediaId} className="h-[124px] w-80 shrink-0 rounded-lg" />
-              )
-            })}
-          </Rail>
+          <div className="grid gap-5 lg:grid-cols-12">
+            {leadMedia && lead && (
+              <div className="min-w-0 lg:col-span-7">
+                <FeatureCard
+                  media={leadMedia}
+                  height="lg"
+                  layered={layered}
+                  eyebrow={`${unitName(leadMedia.kind)} ${lead.progress + 1}`}
+                  blurb={<LeadProgress media={leadMedia} progress={lead.progress} />}
+                  action={
+                    <Link to={`/media/${leadMedia.id}`} className={buttonClasses('primary', 'lg')}>
+                      Continue
+                      <ArrowRight className="size-4" aria-hidden />
+                    </Link>
+                  }
+                />
+              </div>
+            )}
+
+            <div className="flex min-w-0 flex-col gap-3 lg:col-span-5">
+              {rest.map((entry) => {
+                const media = map.get(entry.mediaId)
+                return media ? (
+                  <SideRow key={entry.mediaId} media={media} progress={entry.progress} />
+                ) : (
+                  <Skeleton key={entry.mediaId} className="h-[5.5rem] rounded-lg" />
+                )
+              })}
+
+              {continueList.length > 4 && (
+                <Link
+                  to="/library?status=current"
+                  className="mt-auto flex items-center justify-between rounded-lg border border-dashed border-line px-4 py-3 text-label text-ink-2 transition-colors hover:border-line-strong hover:text-ink"
+                >
+                  <span className="font-mono-num">{continueList.length - 4} more</span>
+                  <ArrowRight className="size-4" aria-hidden />
+                </Link>
+              )}
+            </div>
+          </div>
         )}
       </Section>
 
-      {/* -------------------------------------------------- activity + stats */}
+      {/* --------------------------------------------------------- almost done */}
 
-      <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
-        <Section className="lg:col-span-7">
-          <SectionHeader eyebrow="Activity" title="Your journey" size="sm" />
-
-          {days.length === 0 ? (
-            <p className="py-8 text-body text-ink-3">
-              Nothing yet. Updating progress, rating and collecting all show up here.
-            </p>
-          ) : (
-            <div className="space-y-8">
-              {days.map(({ day, events }) => (
-                <div key={day}>
-                  <h3 className="mb-3 text-micro text-ink-3 uppercase">{dayLabel(day)}</h3>
-                  <ul className="space-y-0.5">
-                    {events.slice(0, 8).map((event) => (
-                      <ActivityRow key={event.id} event={event} map={map} />
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
+      {nearlyDone.length > 0 && (
+        <Section>
+          <SectionHeader title="Nearly Finished" size="sm" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {nearlyDone.slice(0, 6).map(({ entry, media, left }) => (
+              <NearlyThereCard key={media.id} media={media} progress={entry.progress} left={left} />
+            ))}
+          </div>
         </Section>
+      )}
 
-        <div className="space-y-10 lg:col-span-5">
-          <Section>
-            <SectionHeader eyebrow="This week" title="At a glance" size="sm" />
-            <div className="grid grid-cols-2 gap-3">
-              <StatTile
-                label="Episodes"
-                value={week.episodes}
-                icon={<Tv className="size-3.5" />}
-                hint={week.episodes === 0 ? 'Nothing yet' : 'watched'}
-              />
-              <StatTile
-                label="Chapters"
-                value={week.chapters}
-                icon={<BookOpen className="size-3.5" />}
-                hint={week.chapters === 0 ? 'Nothing yet' : 'read'}
-              />
-              <StatTile
-                label="Finished"
-                value={week.completed}
-                icon={<Check className="size-3.5" />}
-                hint={pluralize(week.completed, 'title')}
-              />
-              <StatTile
-                label="Rated"
-                value={week.rated}
-                icon={<Star className="size-3.5" />}
-                hint={pluralize(week.rated, 'title')}
-              />
-            </div>
-          </Section>
+      {/* -------------------------------------------------------------- airing */}
 
-          <Section>
-            <SectionHeader eyebrow="Ratings" title="How you score" size="sm" />
-            <RatingHistogram distribution={distribution} />
-          </Section>
+      {airing.length > 0 && (
+        <Section>
+          <SectionHeader title="Airing This Week" size="sm" />
+          <Rail aria-label="Upcoming episodes" gap="sm">
+            {airing.map(({ media, airingAt, episode }) => (
+              <AiringCard key={media.id} media={media} airingAt={airingAt} episode={episode} />
+            ))}
+          </Rail>
+        </Section>
+      )}
+
+      {/* --------------------------------------------------------- completed */}
+
+      {completed.length > 0 && (
+        <Section>
+          <SectionHeader
+            title="Recently Completed"
+            size="sm"
+            action={
+              <Link
+                to="/library?status=completed&sort=score"
+                className="label-cat label-cat-plain hover:text-ink"
+              >
+                Highest rated
+              </Link>
+            }
+          />
+          <div>
+            <Rail aria-label="Recently completed">
+              {completed.map((entry) => {
+                const media = map.get(entry.mediaId)
+                return media ? (
+                  <div key={entry.mediaId} className="flex w-32 shrink-0 flex-col md:w-38">
+                    <ShelfCover media={media} entry={entry} />
+                    <p className="label-cat label-cat-plain mt-2.5 truncate">
+                      {entry.finishedAt ? fullDate(entry.finishedAt) : ''}
+                    </p>
+                  </div>
+                ) : (
+                  <Skeleton
+                    key={entry.mediaId}
+                    className="aspect-[2/3] w-32 shrink-0 rounded-[3px] md:w-38"
+                  />
+                )
+              })}
+            </Rail>
+            <ShelfLine className="mt-2" />
+          </div>
+        </Section>
+      )}
+
+      {/* -------------------------------------------------------- numbers row */}
+
+      <section className="grid gap-10 lg:grid-cols-12 lg:gap-12">
+        <div className="min-w-0 lg:col-span-7">
+          <Eyebrow className="mb-5">This week</Eyebrow>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+            <StatTile label="Episodes" value={week.episodes} icon={<Tv className="size-3.5" />} />
+            <StatTile
+              label="Chapters"
+              value={week.chapters}
+              icon={<BookOpen className="size-3.5" />}
+            />
+            <StatTile label="Finished" value={week.completed} icon={<Check className="size-3.5" />} />
+            <StatTile label="Rated" value={week.rated} icon={<Star className="size-3.5" />} />
+          </div>
 
           {affinity.length > 0 && (
-            <Section>
-              <SectionHeader eyebrow="Taste" title="Your genres" size="sm" />
+            <div className="mt-10">
+              <Eyebrow className="mb-4">Genres you rate highest</Eyebrow>
               <div className="space-y-2.5">
                 {affinity.map((g) => (
                   <BarRow
@@ -194,68 +257,279 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
-            </Section>
+            </div>
           )}
         </div>
-      </div>
 
-      {/* --------------------------------------------------------- completed */}
+        <div className="min-w-0 lg:col-span-5">
+          <Eyebrow className="mb-5">Your scores</Eyebrow>
+          {distribution.some(Boolean) ? (
+            <ScoreHistogram distribution={distribution} />
+          ) : (
+            <p className="text-body text-ink-3">No scores yet.</p>
+          )}
+        </div>
+      </section>
 
-      {completed.length > 0 && (
-        <Section>
+      {/* ------------------------------------------------- diary + collections */}
+
+      <div className="grid gap-12 lg:grid-cols-12 lg:gap-14">
+        <Section className="lg:col-span-7">
+          <SectionHeader title="Activity" size="sm" bare />
+
+          {days.length === 0 ? (
+            <p className="text-body text-ink-3">Nothing logged yet.</p>
+          ) : (
+            <div className="space-y-7">
+              {days.map(({ day, events }) => (
+                <div key={day}>
+                  <div className="mb-3 flex items-center gap-3">
+                    <Eyebrow tick={false}>{dayLabel(day)}</Eyebrow>
+                    <span className="h-px flex-1 bg-line" aria-hidden />
+                  </div>
+                  <ul className="space-y-0.5 border-l border-line pl-4">
+                    {events.slice(0, 7).map((event) => (
+                      <ActivityRow key={event.id} event={event} map={map} />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+
+        <Section className="lg:col-span-5">
           <SectionHeader
-            eyebrow="Recently finished"
-            title="On the shelf"
+            title="Your Collections"
+            size="sm"
             action={
-              <Link to="/library?status=completed" className="text-label text-ink-3 hover:text-ink">
-                See all
+              <Link to="/collections" className="label-cat label-cat-plain hover:text-ink">
+                All
               </Link>
             }
           />
-          <Rail aria-label="Recently completed">
-            {completed.map((entry) => {
-              const media = map.get(entry.mediaId)
-              return media ? (
-                <ShelfCover key={entry.mediaId} media={media} entry={entry} />
-              ) : (
-                <div key={entry.mediaId} className="w-36 shrink-0 md:w-40">
-                  <CoverSkeleton />
-                </div>
-              )
-            })}
-          </Rail>
+          {collections.length === 0 ? (
+            <Link
+              to="/collections"
+              className="flex items-center justify-between rounded-lg border border-dashed border-line px-4 py-4 text-label text-ink-2 transition-colors hover:border-accent-line hover:text-accent"
+            >
+              Start your first collection
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          ) : (
+            <div className="space-y-4">
+              {collections.slice(0, 3).map((c) => (
+                <CollectionStrip key={c.id} collection={c} map={map} />
+              ))}
+            </div>
+          )}
         </Section>
-      )}
+      </div>
     </div>
   )
 }
 
-/* -------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------ pieces -- */
 
-function RatingHistogram({ distribution }: { distribution: number[] }) {
-  const max = Math.max(1, ...distribution)
-  const total = distribution.reduce((a, b) => a + b, 0)
+/**
+ * The masthead.
+ *
+ * A greeting and the week in numbers — no generated sentence about how you're
+ * doing. The date and the count are true; anything else would be filler.
+ */
+function Masthead({
+  name,
+  week,
+}: {
+  name: string | null
+  week: { episodes: number; chapters: number; completed: number; rated: number }
+}) {
+  const today = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date())
 
-  if (total === 0) {
-    return <p className="text-body text-ink-3">Rate a few titles and your curve appears here.</p>
-  }
+  const figures = [
+    week.episodes > 0 && pluralize(week.episodes, 'episode'),
+    week.chapters > 0 && pluralize(week.chapters, 'chapter'),
+    week.completed > 0 && `${week.completed} finished`,
+  ].filter(Boolean) as string[]
 
   return (
-    <div>
-      <div className="flex h-24 items-end gap-1.5">
-        {distribution.map((count, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
-            <div
-              className="w-full rounded-t-[3px] bg-accent transition-[height] duration-500"
-              style={{ height: `${Math.max(count === 0 ? 2 : 8, (count / max) * 100)}%`, opacity: count === 0 ? 0.18 : 1 }}
-              title={`${count} rated ${i + 1}`}
-            />
-            <span className="tnum text-micro text-ink-3">{i + 1}</span>
-          </div>
-        ))}
+    <header className="border-b border-line pb-8">
+      <Eyebrow className="mb-4">{today}</Eyebrow>
+      <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
+        <h1 className="text-display-lg text-balance text-ink md:text-display-xl">
+          {name ? `${greeting()}, ${name}.` : `${greeting()}.`}
+        </h1>
+        {figures.length > 0 && (
+          <p className="font-mono-num pb-2 text-meta text-ink-3">
+            {figures.join(' · ')} <span className="text-ink-3/70">this week</span>
+          </p>
+        )}
       </div>
-      <p className="mt-3 text-meta text-ink-3">{pluralize(total, 'title')} rated</p>
+    </header>
+  )
+}
+
+function LeadProgress({ media, progress }: { media: MediaSummary; progress: number }) {
+  const total = totalUnits(media)
+  return (
+    <div className="max-w-xs space-y-2.5">
+      <ProgressBar value={progress} max={total} size="md" />
+      <p className="font-mono-num text-meta text-ink-3">
+        {progress} / {total ?? '?'}
+        {total ? ` · ${Math.round((progress / total) * 100)}%` : ''}
+      </p>
     </div>
+  )
+}
+
+/** The compact companion to the hero: art, title, and one bar. */
+function SideRow({ media, progress }: { media: MediaSummary; progress: number }) {
+  const language = usePrefs((s) => s.titleLanguage)
+  const total = totalUnits(media)
+
+  return (
+    <Link
+      to={`/media/${media.id}`}
+      className="group/side frame-lift flex items-center gap-4 rounded-lg border border-line bg-surface p-3 transition-colors hover:border-line-strong"
+    >
+      <div className="w-12 shrink-0">
+        <CoverImage src={media.coverImage} alt="" color={media.color} />
+      </div>
+      <div className="min-w-0 flex-1 space-y-2">
+        <p className="truncate text-label font-medium text-ink transition-colors group-hover/side:text-accent">
+          {displayTitle(media, language)}
+        </p>
+        <ProgressBar value={progress} max={total} />
+        <p className="font-mono-num text-[0.625rem] text-ink-3">
+          {progress}/{total ?? '?'}
+        </p>
+      </div>
+    </Link>
+  )
+}
+
+function AiringCard({
+  media,
+  airingAt,
+  episode,
+}: {
+  media: MediaSummary
+  airingAt: number
+  episode: number
+}) {
+  const language = usePrefs((s) => s.titleLanguage)
+  const soon = airingAt * 1000 - Date.now() < 36 * 3_600_000
+
+  return (
+    <Link
+      to={`/media/${media.id}`}
+      className="group/air frame-lift w-32 shrink-0 md:w-36"
+      title={displayTitle(media, language)}
+    >
+      <CoverImage src={media.coverImage} alt="" color={media.color}>
+        <span
+          className={cn(
+            'font-mono-num absolute top-0 left-0 rounded-br-[7px] px-1.5 py-1 text-[0.625rem] font-semibold backdrop-blur-md',
+            soon ? 'bg-accent/95 text-accent-ink' : 'bg-canvas/90 text-ink',
+          )}
+        >
+          {airingDayShort(airingAt)}
+        </span>
+      </CoverImage>
+      <p className="clamp-1 mt-2 text-label font-medium text-ink transition-colors group-hover/air:text-accent">
+        {displayTitle(media, language)}
+      </p>
+      <p className="label-cat label-cat-plain mt-1">
+        Ep {episode} · {timeLabel(airingAt * 1000)}
+      </p>
+    </Link>
+  )
+}
+
+function NearlyThereCard({
+  media,
+  progress,
+  left,
+}: {
+  media: MediaSummary
+  progress: number
+  left: number
+}) {
+  const language = usePrefs((s) => s.titleLanguage)
+  const total = totalUnits(media)
+  const unit = unitName(media.kind).toLowerCase()
+
+  return (
+    <Link
+      to={`/media/${media.id}`}
+      className="group/near frame-lift flex items-stretch gap-4 rounded-lg border border-line bg-surface p-3.5 transition-colors hover:border-line-strong"
+    >
+      <div className="w-14 shrink-0">
+        <CoverImage src={media.coverImage} alt="" color={media.color} />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
+        <div className="min-w-0">
+          <p className="clamp-2 text-label leading-snug font-medium text-ink transition-colors group-hover/near:text-accent">
+            {displayTitle(media, language)}
+          </p>
+        </div>
+        <div className="space-y-2">
+          <ProgressBar value={progress} max={total} />
+          <p className="flex items-baseline gap-1.5">
+            <span className="font-mono-num text-display-sm leading-none font-semibold text-accent">
+              {left}
+            </span>
+            <span className="label-cat label-cat-plain">
+              {left === 1 ? `${unit} left` : `${unit}s left`}
+            </span>
+          </p>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function CollectionStrip({
+  collection,
+  map,
+}: {
+  collection: Collection
+  map: Map<number, MediaSummary>
+}) {
+  const ids = useCollectionCoverIds(collection.id, 4)
+  const covers = ids
+    .map((id) => map.get(id))
+    .filter(Boolean)
+    .map((m) => ({ id: m!.id, src: m!.coverImage, color: m!.color }))
+
+  return (
+    <Link
+      to={`/collections/${collection.id}`}
+      className="group flex items-center gap-5 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong"
+    >
+      {covers.length > 0 ? (
+        <CoverStack covers={covers} width={44} offset={13} className="shrink-0" />
+      ) : (
+        <div className="h-[66px] w-[44px] shrink-0 rounded-[3px] border border-dashed border-line-strong" />
+      )}
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-title font-semibold text-ink transition-colors group-hover:text-accent">
+          {collection.name}
+        </p>
+        <p className="label-cat label-cat-plain mt-2">{pluralize(ids.length, 'title')}</p>
+      </div>
+
+      <ArrowRight
+        className="size-4 shrink-0 text-ink-3 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-ink"
+        aria-hidden
+      />
+    </Link>
   )
 }
 
@@ -282,8 +556,12 @@ function ActivityRow({ event, map }: { event: ActivityEvent; map: Map<number, Me
   if (!body) return null
 
   return (
-    <li className="group flex items-baseline gap-3 rounded-md py-1.5 text-body">
-      <Icon className="size-3.5 shrink-0 translate-y-0.5 text-ink-3" strokeWidth={1.8} aria-hidden />
+    <li className="group relative flex items-baseline gap-3 py-1.5 text-body">
+      <Icon
+        className="size-3.5 shrink-0 translate-y-0.5 text-ink-3 transition-colors group-hover:text-accent"
+        strokeWidth={1.8}
+        aria-hidden
+      />
       <span className="min-w-0 flex-1 text-ink-2">
         {body}
         {event.mediaId && title && (
@@ -297,15 +575,21 @@ function ActivityRow({ event, map }: { event: ActivityEvent; map: Map<number, Me
             </Link>
           </>
         )}
+        {event.type === 'score' && event.payload.to != null && (
+          <Rating value={Number(event.payload.to)} size="xs" className="ml-2 translate-y-px" />
+        )}
       </span>
-      <time className="tnum shrink-0 text-meta text-ink-3" dateTime={new Date(event.createdAt).toISOString()}>
+      <time
+        className="font-mono-num shrink-0 text-[0.625rem] text-ink-3"
+        dateTime={new Date(event.createdAt).toISOString()}
+      >
         {timeLabel(event.createdAt)}
       </time>
     </li>
   )
 }
 
-/** Phrasing reads as a diary, not a changelog. */
+/** Plain past tense. A log, not a personality. */
 function describe(event: ActivityEvent, title: string | null): string | null {
   const kind = event.kind === 'anime' ? 'anime' : 'manga'
 
@@ -319,16 +603,14 @@ function describe(event: ActivityEvent, title: string | null): string | null {
     }
     case 'status': {
       const to = String(event.payload.to)
-      if (to === 'completed') return 'Finished'
+      if (to === 'completed') return 'Completed'
       if (to === 'current') return kind === 'anime' ? 'Started watching' : 'Started reading'
       if (to === 'dropped') return 'Dropped'
       if (to === 'paused') return 'Paused'
-      return `Moved to ${statusLabel('planning', 'anime').toLowerCase()}`
+      return 'Moved to planning —'
     }
     case 'score':
-      return event.payload.to == null
-        ? 'Cleared the rating on'
-        : `Rated ${scoreText(Number(event.payload.to))} —`
+      return event.payload.to == null ? 'Cleared the score on' : 'Rated'
     case 'rank':
       return event.payload.to == null ? 'Removed the ranking on' : `Ranked #${event.payload.to} —`
     case 'added':

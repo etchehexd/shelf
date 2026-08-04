@@ -1,10 +1,16 @@
 /* ---------------------------------------------------------------------------
  * Shelf — design tokens
  *
+ * The visual language, in one file.
+ *
+ *   Warm paper neutrals. One ember accent. Artwork supplies the rest of the
+ *   color. Type is a single modern sans (Geist) with a mono companion used
+ *   only for the catalog voice — eyebrows, index numbers, counts, timecodes.
+ *
  * Three layers, in order:
  *   1. :root / [data-theme]  → raw themed values
  *   2. @theme inline         → bridge into Tailwind utilities (bg-surface, …)
- *   3. --art-accent          → per-page, written at runtime from cover artwork
+ *   3. --art-*               → per-page, written at runtime from cover artwork
  *
  * `inline` on @theme matters: it makes utilities emit `var(--canvas)` rather
  * than a baked hex, which is what lets the theme flip without a rebuild.
@@ -14,38 +20,65 @@
 [data-theme='light'] {
   color-scheme: light;
 
-  /* surfaces — warm, paper-like */
-  --canvas: #fbfaf8;
-  --surface: #ffffff;
-  --surface-2: #f4f2ed;
-  --surface-3: #eae7e0;
-  --border: #e4e0d8;
-  --border-strong: #d2ccc0;
+  /* surfaces — warm paper, five steps so depth never relies on shadow alone */
+  --canvas: #f6f4f0;
+  --surface: #fffefc;
+  --surface-2: #f0ece5;
+  --surface-3: #e6e0d6;
+  --sunk: #ebe6dd;
+  --border: #e3ddd2;
+  --border-strong: #cec5b6;
 
   /* text */
-  --ink: #191714;
-  --ink-2: #57524a;
-  --ink-3: #8c857a;
+  --ink: #1b1815;
+  --ink-2: #55504a;
+  /* Tertiary ink carries the catalog labels, which are small — so it is
+     tuned to clear 4.5:1 on canvas, surface and surface-2, not just to look
+     quiet. See DESIGN.md §Accessibility. */
+  --ink-3: #6f685e;
   --ink-inverse: #fbfaf8;
 
-  /* accent — lamplight amber */
-  --accent: #a9631c;
-  --accent-hover: #8e5316;
-  --accent-quiet: #f5eadc;
-  --accent-ink: #ffffff;
+  /* accent — ember. Lamplight, a filled star, the spine of a well-read book. */
+  --accent: #b0541f;
+  --accent-hover: #94441a;
+  --accent-quiet: #f6e8dc;
+  --accent-line: #e3c8ad;
+  --accent-ink: #fffdfa;
 
   /* status */
-  --st-current: #3f7d5c;
-  --st-completed: #4a6fa5;
-  --st-planning: #8c857a;
-  --st-paused: #a07a2b;
-  --st-dropped: #9a5a5e;
+  --st-current: #3d7a58;
+  --st-completed: #4a6b9e;
+  --st-planning: #6f685e;
+  --st-paused: #a3792a;
+  --st-dropped: #98565a;
+
+  /* ---- the community ramp -----------------------------------------------
+     Everyone else's score, in four bands. Deliberately cool — never ember —
+     because ember means "yours" everywhere in this product and the two
+     numbers must not be confusable at a glance from across the room.
+     `-ink` is the text that sits *on* the solid band, and each band is
+     tuned to clear 4.5:1 against it. */
+  --score-hi: #12704b;
+  --score-good: #1f6f83;
+  --score-fair: #4a5fa0;
+  --score-weak: #97474f;
+  --score-ink: #fbfaf8;
 
   /* scrims over artwork */
-  --scrim: 251 250 248;
-  --shadow-sm: 0 1px 2px rgb(25 23 20 / 0.04), 0 2px 8px rgb(25 23 20 / 0.04);
-  --shadow-md: 0 4px 12px rgb(25 23 20 / 0.08), 0 12px 32px rgb(25 23 20 / 0.08);
-  --shadow-lg: 0 8px 24px rgb(25 23 20 / 0.1), 0 24px 64px rgb(25 23 20 / 0.14);
+  --scrim: 246 244 240;
+
+  /* Elevation reads as an object resting on a shelf: a tight contact shadow
+     plus a wide soft one. Never a single blurry halo. */
+  --shadow-xs: 0 1px 1px rgb(38 30 20 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(38 30 20 / 0.06), 0 3px 8px rgb(38 30 20 / 0.05);
+  --shadow-md: 0 2px 4px rgb(38 30 20 / 0.07), 0 10px 24px rgb(38 30 20 / 0.09);
+  --shadow-lg: 0 4px 8px rgb(38 30 20 / 0.08), 0 20px 48px rgb(38 30 20 / 0.14);
+  --shadow-poster: 0 1px 2px rgb(38 30 20 / 0.14), 0 6px 16px rgb(38 30 20 / 0.14);
+  --shadow-poster-lift: 0 2px 4px rgb(38 30 20 / 0.16), 0 18px 36px rgb(38 30 20 / 0.22);
+
+  /* the hairline a poster stands on */
+  --shelf-line: #d6cec1;
+  --grain: 0.035;
 
   /* fallback until a page publishes its artwork accent */
   --art-accent: var(--accent);
@@ -55,45 +88,65 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --canvas: #0e0e11;
-  --surface: #161619;
-  --surface-2: #1e1e23;
-  --surface-3: #27272e;
-  --border: #26262c;
-  --border-strong: #34343c;
+  /* Warm charcoal, not blue-black — the brief's "cozy coffee shop at night". */
+  --canvas: #131110;
+  --surface: #1c1917;
+  --surface-2: #24201d;
+  --surface-3: #2e2926;
+  --sunk: #100e0d;
+  --border: #2b2622;
+  --border-strong: #3d3730;
 
-  --ink: #f3f1ee;
-  --ink-2: #a8a29a;
-  --ink-3: #6f6a63;
-  --ink-inverse: #14141a;
+  --ink: #f6f2ec;
+  --ink-2: #aaa39a;
+  --ink-3: #8f887e;
+  --ink-inverse: #17140f;
 
-  --accent: #e0a052;
-  --accent-hover: #efb369;
-  --accent-quiet: #2a2118;
-  --accent-ink: #191510;
+  --accent: #e39a55;
+  --accent-hover: #f0af6f;
+  --accent-quiet: #2a2018;
+  --accent-line: #4a3826;
+  --accent-ink: #1a1209;
 
-  --st-current: #6bb58c;
-  --st-completed: #8aa9da;
-  --st-planning: #7c776f;
-  --st-paused: #cba35c;
-  --st-dropped: #c08a8d;
+  --st-current: #6cb28b;
+  --st-completed: #86a3d6;
+  --st-planning: #8f887e;
+  --st-paused: #c99f56;
+  --st-dropped: #c08589;
 
-  --scrim: 14 14 17;
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px rgb(0 0 0 / 0.2);
-  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.32);
-  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.45), 0 24px 64px rgb(0 0 0 / 0.5);
+  /* The dark bands are lifted and desaturated rather than simply brightened:
+     a saturated green chip on warm charcoal reads as a notification badge. */
+  --score-hi: #35b585;
+  --score-good: #3fabc4;
+  --score-fair: #8098e2;
+  --score-weak: #d97f87;
+  --score-ink: #10100f;
+
+  --scrim: 19 17 16;
+
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4), 0 3px 8px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 2px 4px rgb(0 0 0 / 0.45), 0 10px 24px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.5), 0 20px 48px rgb(0 0 0 / 0.55);
+  --shadow-poster: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 16px rgb(0 0 0 / 0.45);
+  --shadow-poster-lift: 0 2px 4px rgb(0 0 0 / 0.55), 0 18px 36px rgb(0 0 0 / 0.6);
+
+  --shelf-line: #3a332c;
+  --grain: 0.05;
 }
 
 /* ------------------------------------------------------------------------- */
 
 @theme inline {
-  /* colours */
+  /* colors */
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-sunk: var(--sunk);
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
+  --color-shelf: var(--shelf-line);
 
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
@@ -103,6 +156,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-quiet: var(--accent-quiet);
+  --color-accent-line: var(--accent-line);
   --color-accent-ink: var(--accent-ink);
 
   --color-art: var(--art-accent);
@@ -116,58 +170,80 @@
   --color-paused: var(--st-paused);
   --color-dropped: var(--st-dropped);
 
-  /* type */
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Fraunces Variable', ui-serif, Georgia, 'Times New Roman', serif;
+  --color-score-hi: var(--score-hi);
+  --color-score-good: var(--score-good);
+  --color-score-fair: var(--score-fair);
+  --color-score-weak: var(--score-weak);
+  --color-score-ink: var(--score-ink);
 
-  --text-micro: 0.6875rem;
-  --text-micro--line-height: 1.3;
-  --text-micro--letter-spacing: 0.06em;
+  /* ---- type -------------------------------------------------------------
+     One sans for everything, one mono for the catalog voice. Hierarchy is
+     built from weight, size and tracking — never from a second personality. */
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+
+  /* The catalog label: mono, small, wide, uppercase. Appears on every page. */
+  --text-micro: 0.65625rem;
+  --text-micro--line-height: 1.2;
+  --text-micro--letter-spacing: 0.14em;
   --text-micro--font-weight: 600;
 
   --text-meta: 0.75rem;
-  --text-meta--line-height: 1.35;
+  --text-meta--line-height: 1.4;
 
   --text-label: 0.8125rem;
-  --text-label--line-height: 1.4;
+  --text-label--line-height: 1.45;
 
   --text-body: 0.90625rem;
-  --text-body--line-height: 1.6;
+  --text-body--line-height: 1.65;
 
-  --text-title: 1rem;
+  --text-title: 0.96875rem;
   --text-title--line-height: 1.35;
+  --text-title--letter-spacing: -0.011em;
 
-  --text-display-sm: 1.25rem;
-  --text-display-sm--line-height: 1.25;
-  --text-display-sm--letter-spacing: -0.02em;
+  --text-display-sm: 1.1875rem;
+  --text-display-sm--line-height: 1.2;
+  --text-display-sm--letter-spacing: -0.021em;
+  --text-display-sm--font-weight: 600;
 
-  --text-display-md: 1.75rem;
-  --text-display-md--line-height: 1.15;
-  --text-display-md--letter-spacing: -0.022em;
+  --text-display-md: 1.625rem;
+  --text-display-md--line-height: 1.12;
+  --text-display-md--letter-spacing: -0.028em;
+  --text-display-md--font-weight: 600;
 
-  --text-display-lg: 2.5rem;
-  --text-display-lg--line-height: 1.08;
-  --text-display-lg--letter-spacing: -0.024em;
+  --text-display-lg: 2.375rem;
+  --text-display-lg--line-height: 1.04;
+  --text-display-lg--letter-spacing: -0.034em;
+  --text-display-lg--font-weight: 620;
 
-  --text-display-xl: 3.75rem;
-  --text-display-xl--line-height: 1.02;
-  --text-display-xl--letter-spacing: -0.028em;
+  --text-display-xl: 3.5rem;
+  --text-display-xl--line-height: 0.98;
+  --text-display-xl--letter-spacing: -0.04em;
+  --text-display-xl--font-weight: 640;
 
-  /* radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  /* ---- radius -----------------------------------------------------------
+     Deliberate variety. Artwork is nearly square-cornered so it reads as a
+     printed object; the panels around it are soft. Sharp art, soft room. */
+  --radius-art: 3px;
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius-md: 13px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
 
   /* elevation */
+  --shadow-xs: var(--shadow-xs);
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  --shadow-poster: var(--shadow-poster);
+  --shadow-poster-lift: var(--shadow-poster-lift);
 
-  /* motion */
-  --ease-out-soft: cubic-bezier(0.2, 0, 0, 1);
+  /* motion — nothing snaps */
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.24, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 
   /* layout */
-  --container-page: 1560px;
+  --container-page: 1520px;
 }

@@ -76,7 +76,7 @@ export function SegmentedControl<T extends string>({
               {seg.icon}
               {!iconOnly && seg.label}
               {!iconOnly && seg.count != null && (
-                <span className="tnum text-ink-3">{seg.count}</span>
+                <span className="font-mono-num text-ink-3">{seg.count}</span>
               )}
             </span>
           </button>

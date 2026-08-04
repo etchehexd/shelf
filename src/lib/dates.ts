@@ -41,6 +41,35 @@ export function relativeShort(ts: number): string {
   return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(ts)
 }
 
+/**
+ * "Tonight 01:00" / "Friday 01:00" / "in 12 days" — for airing schedules.
+ * Takes AniList's `airingAt`, which is unix *seconds*.
+ */
+export function airingLabel(airingAt: number): string {
+  const ts = airingAt * 1000
+  const days = Math.round((startOfDay(ts) - startOfDay(Date.now())) / DAY)
+  const time = timeLabel(ts)
+
+  if (days === 0) return `Today ${time}`
+  if (days === 1) return `Tomorrow ${time}`
+  if (days > 1 && days < 7)
+    return `${new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(ts)} ${time}`
+  if (days < 0) return dayLabel(ts)
+
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(ts)
+}
+
+/** Short form for badges: "Fri", "Today", "2 Sep". */
+export function airingDayShort(airingAt: number): string {
+  const ts = airingAt * 1000
+  const days = Math.round((startOfDay(ts) - startOfDay(Date.now())) / DAY)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  if (days > 1 && days < 7)
+    return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(ts)
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(ts)
+}
+
 export function timeLabel(ts: number): string {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(ts)
 }

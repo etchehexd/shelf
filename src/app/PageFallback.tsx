@@ -12,8 +12,8 @@ export function PageFallback({ notFound }: { notFound?: boolean }) {
       <div className="py-24">
         <EmptyState
           icon={<Compass className="size-8" strokeWidth={1.5} />}
-          title="Nothing on this shelf"
-          description="That page doesn't exist — it may have been moved or removed."
+          title="Page not found"
+          
           action={
             <Link
               to="/"

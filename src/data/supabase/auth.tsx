@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session } from '@supabase/supabase-js'
 import { supabase, isSyncConfigured } from './client'
 import { startSync, stopSync } from '@/data/sync/engine'
-import { useLibrary } from '@/data/store/library'
 
 interface AuthValue {
   session: Session | null
@@ -10,7 +9,7 @@ interface AuthValue {
   /** False when no Supabase credentials are configured — local-only mode. */
   enabled: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -59,15 +58,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error?.message ?? null }
       },
 
-      signUp: async (email, password, displayName) => {
+      /**
+       * Signing up creates an account and nothing else.
+       *
+       * No display name is collected and none is derived from the email — a
+       * profile named after the left-hand side of someone's address is exactly
+       * the kind of assumed identity this app is supposed to have stopped
+       * making. The room starts empty and gets a name when its owner gives it
+       * one, in Profile → Edit.
+       */
+      signUp: async (email, password) => {
         if (!supabase) return { error: 'Sync is not configured.' }
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          // Read by the handle_new_user trigger to seed the profile row.
-          options: { data: { display_name: displayName } },
-        })
-        if (!error) useLibrary.getState().updateProfile({ displayName })
+        const { error } = await supabase.auth.signUp({ email, password })
         return { error: error?.message ?? null }
       },
 
