@@ -6,6 +6,7 @@ import { displayTitle } from '@/data/anilist/normalize'
 import type { MediaSummary } from '@/data/anilist/types'
 import { useLibrary } from '@/data/store/library'
 import { usePrefs } from '@/data/store/prefs'
+import { useAuth } from '@/data/supabase/auth'
 import { useCollections, useCollectionsContaining } from '@/data/store/selectors'
 import type { Collection } from '@/data/store/types'
 import { cn } from '@/lib/cn'
@@ -48,6 +49,7 @@ export function AddToCollectionDialog({
   const addToCollection = useLibrary((s) => s.addToCollection)
   const removeFromCollection = useLibrary((s) => s.removeFromCollection)
   const createCollection = useLibrary((s) => s.createCollection)
+  const { canWrite } = useAuth()
 
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
@@ -93,7 +95,7 @@ export function AddToCollectionDialog({
 
   const create = (name: string) => {
     const trimmed = name.trim()
-    if (!trimmed) return
+    if (!trimmed || !canWrite) return
     const id = createCollection({ name: trimmed })
     addToCollection(id, media)
     toast({ message: `${trimmed} started` })
@@ -165,11 +167,11 @@ export function AddToCollectionDialog({
               .map((i) => map.get(i.mediaId))
               .filter(Boolean) as MediaSummary[]}
             count={items.filter((i) => i.collectionId === c.id).length}
-            onToggle={() =>
-              inSet.has(c.id)
-                ? removeFromCollection(c.id, media.id)
-                : addToCollection(c.id, media)
-            }
+            onToggle={() => {
+              if (!canWrite) return
+              if (inSet.has(c.id)) removeFromCollection(c.id, media.id)
+              else addToCollection(c.id, media)
+            }}
           />
         ))}
 

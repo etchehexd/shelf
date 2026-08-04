@@ -4,7 +4,6 @@ import { Compass, Home, Layers, Library, PanelLeft, Trophy, User } from 'lucide-
 import { cn } from '@/lib/cn'
 import { Tooltip, useMediaQuery } from '@/design'
 import { usePrefs } from '@/data/store/prefs'
-import { useAuth } from '@/data/supabase/auth'
 
 interface Destination {
   to: string
@@ -22,20 +21,17 @@ const NAV: Destination[] = [
   { to: '/discover', label: 'Discover', icon: Compass },
 ]
 
-const PROFILE: Destination = { to: '/profile', label: 'Profile', icon: User }
-
 /**
- * Which destinations exist right now.
+ * Every destination, always — including the ones a signed-out visitor can't
+ * use yet.
  *
- * Profile is the one part of the app that needs an identity to mean anything —
- * a room with your name on it, when there is no name. Everything else works
- * signed out, so everything else is always here. When sync isn't configured at
- * all there is no sign-in to wait for, so the local profile stands in.
+ * Hiding them would leave two items in the rail and make the product look like
+ * a search box, which is the opposite of the truth and exactly the wrong
+ * impression to give the people deciding whether to make an account. Each
+ * gated route explains itself when you get there; that is a far better sales
+ * pitch than an absence.
  */
-function useDestinations() {
-  const { session, enabled } = useAuth()
-  return enabled && !session ? NAV : [...NAV, PROFILE]
-}
+const ALL: Destination[] = [...NAV, { to: '/profile', label: 'Profile', icon: User }]
 
 /**
  * The rail.
@@ -55,7 +51,6 @@ function useDestinations() {
 export function NavRail() {
   const collapsed = usePrefs((s) => s.railCollapsed)
   const toggleRail = usePrefs((s) => s.toggleRail)
-  const destinations = useDestinations()
 
   // Below 1024px the rail is icon-only whatever the preference says, so the
   // tooltip is the only label there — it must stay on.
@@ -98,7 +93,7 @@ export function NavRail() {
       </div>
 
       <ul className="flex flex-1 flex-col gap-0.5 px-3 py-3 lg:px-4">
-        {destinations.map((item) => (
+        {ALL.map((item) => (
           <li key={item.to}>
             {/* The tooltip is the label when the label isn't there. */}
             <Tooltip content={item.label} side="right" disabled={labeled}>
@@ -208,7 +203,6 @@ function RailLabel({
 
 /** Mobile: the same destinations as a bottom tab bar. */
 export function BottomBar() {
-  const destinations = useDestinations()
 
   return (
     <nav
@@ -216,7 +210,7 @@ export function BottomBar() {
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/95 backdrop-blur-lg md:hidden"
     >
       <ul className="flex items-stretch justify-around">
-        {destinations.map((item) => (
+        {ALL.map((item) => (
           <li key={item.to} className="flex-1">
             <NavLink
               to={item.to}

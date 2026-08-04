@@ -57,6 +57,8 @@ import type { MediaSummary } from '@/data/anilist/types'
 import { useLibrary } from '@/data/store/library'
 import { usePrefs } from '@/data/store/prefs'
 import { useCollection, useCollectionItems, useCollections } from '@/data/store/selectors'
+import { useAuth } from '@/data/supabase/auth'
+import { SignInWall } from '@/features/auth/SignInWall'
 import type { Collection, CollectionItem } from '@/data/store/types'
 import { MediaCard } from '@/features/tracking/cards'
 import { cn } from '@/lib/cn'
@@ -90,6 +92,7 @@ const PRIVACY_LABEL = {
  * artwork to reorder it removes the only information you were using.
  */
 export default function CollectionDetailPage() {
+  const { signedOut } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const collection = useCollection(id)
@@ -128,6 +131,18 @@ export default function CollectionDetailPage() {
       )
     })
   }, [items, map, needle])
+
+  // Checked before the not-found case: signed out there are no collections at
+  // all, so "no such collection" would be technically true and completely
+  // misleading — it reads as a broken link rather than as a closed door.
+  if (signedOut) {
+    return (
+      <SignInWall section="Collections" headline="Curation is the point.">
+        Collections are something you make and something you share. Both need an account
+        behind them — this one may exist, but not for a visitor without one.
+      </SignInWall>
+    )
+  }
 
   if (!collection) {
     return (

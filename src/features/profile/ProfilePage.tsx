@@ -23,7 +23,6 @@ import {
   Avatar,
   BarRow,
   Button,
-  buttonClasses,
   Card,
   CoverImage,
   CoverStack,
@@ -48,6 +47,7 @@ import { KIND_LABEL, type MediaKind, type MediaSummary } from '@/data/anilist/ty
 import { useLibrary, nameOf } from '@/data/store/library'
 import { usePrefs } from '@/data/store/prefs'
 import { useAuth } from '@/data/supabase/auth'
+import { SignInWall } from '@/features/auth/SignInWall'
 import {
   genreAffinity,
   groupByDay,
@@ -113,10 +113,15 @@ export default function ProfilePage() {
   const affinity = useMemo(() => genreAffinity(entries, map, 3), [entries, map])
 
   // A profile is a room you show other people. Signed out there is nobody whose
-  // room it is, no link to share it at, and nothing to keep it in sync — so the
-  // page says that plainly instead of rendering an anonymous shell. Every other
-  // part of the app stays completely open; this is the only gate in the product.
-  if (enabled && !session) return <SignedOutProfile />
+  // room it is, no link to share it at, and nothing to keep it in sync.
+  if (enabled && !session) {
+    return (
+      <SignInWall section="Profile" headline="A room needs an owner.">
+        Your profile is the page you'd share, the statistics that follow you between devices,
+        the name on the door. None of it means anything until it belongs to somebody.
+      </SignInWall>
+    )
+  }
 
   return (
     <div className="bleed-x -mt-6">
@@ -247,46 +252,6 @@ export default function ProfilePage() {
 }
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * What a profile is when nobody has claimed it.
- *
- * Not a locked door and not a paywall — a statement of what this one section
- * needs that the rest of the app doesn't. It leads with what already works
- * without an account, because "sign in to continue" on a product that does not
- * require an account is a lie the user finds out about later.
- */
-function SignedOutProfile() {
-  const entries = useAllEntries()
-
-  return (
-    <div className="mx-auto max-w-xl py-16">
-      <Eyebrow className="mb-5">Profile</Eyebrow>
-      <h1 className="text-balance text-display-lg text-ink">A room needs an owner.</h1>
-      <p className="prose-width mt-4 text-body text-ink-2">
-        Your profile is the one part of Shelf that means nothing without an account — it's the
-        page you'd share, the statistics you'd keep across devices, the name on the door.
-      </p>
-
-      <ShelfLine className="mt-9" />
-
-      <p className="mt-9 text-body text-ink-2">
-        {entries.length > 0
-          ? `Everything you've tracked so far — ${pluralize(entries.length, 'title')} — stays exactly where it is, on this device. Signing in brings it with you.`
-          : 'Everything else works right now, signed out. Track, rank, collect — it all stays on this device until you decide otherwise.'}
-      </p>
-
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link to="/auth" className={buttonClasses('primary', 'lg')}>
-          Sign in or create an account
-        </Link>
-        <Link to="/library" className={buttonClasses('secondary', 'lg')}>
-          Back to your library
-        </Link>
-      </div>
-    </div>
-  )
-}
 
 /**
  * The default banner: a wall of your own covers, cropped to a strip and dimmed.

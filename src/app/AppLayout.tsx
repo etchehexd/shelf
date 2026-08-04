@@ -4,6 +4,7 @@ import { NavRail, BottomBar } from './NavRail'
 import { TopBar } from './TopBar'
 import { CommandPalette } from './CommandPalette'
 import { Onboarding } from '@/features/onboarding/Onboarding'
+import { AuthGateDialog } from '@/features/auth/AuthGateDialog'
 import { usePrefs } from '@/data/store/prefs'
 import { useMediaQuery } from '@/design'
 
@@ -62,6 +63,8 @@ export function AppLayout() {
 
       <BottomBar />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {/* Mounted once: the control it interrupts could be on any page. */}
+      <AuthGateDialog />
       <Onboarding />
     </div>
   )

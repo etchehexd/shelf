@@ -37,6 +37,7 @@ import { useTracking } from '@/features/tracking/useTracking'
 import { RankDialog, RatePopover, StatusMenu, StatusDot } from '@/features/tracking/controls'
 import { MediaCard } from '@/features/tracking/cards'
 import { AddToCollectionDialog } from '@/features/tracking/AddToCollectionDialog'
+import { requireSignIn } from '@/features/auth/gate'
 import { artAccent, artAccentQuiet, artScrim } from '@/lib/accent'
 import { cn } from '@/lib/cn'
 import { airingLabel, dayLabel, fullDate } from '@/lib/dates'
@@ -116,7 +117,7 @@ function Banner({ media, scrim }: { media: Media; scrim: string | null }) {
 
 function Hero({ media }: { media: Media }) {
   const language = usePrefs((s) => s.titleLanguage)
-  const { entry, inLibrary, total, setProgress, setVolumes, add, addRepeat, toggleFavorite } =
+  const { entry, inLibrary, total, canWrite, setProgress, setVolumes, add, addRepeat, toggleFavorite } =
     useTracking(media)
   const rank = useRank(media.kind, media.id)
   const collections = useCollectionsContaining(media.id)
@@ -173,7 +174,7 @@ function Hero({ media }: { media: Media }) {
           <Button
             block
             icon={<ListPlus className="size-4" />}
-            onClick={() => setCollectOpen(true)}
+            onClick={() => (canWrite ? setCollectOpen(true) : requireSignIn('build collections'))}
           >
             Add to Collection
           </Button>
@@ -236,7 +237,7 @@ function Hero({ media }: { media: Media }) {
         <div className="mt-5 flex flex-wrap items-center gap-x-7 gap-y-3">
           <button
             type="button"
-            onClick={() => setRankOpen(true)}
+            onClick={() => (canWrite ? setRankOpen(true) : requireSignIn('rank what you have watched'))}
             className="flex items-center gap-2 rounded-sm text-label text-ink-2 hover:text-ink"
           >
             <Trophy className="size-4 text-ink-3" aria-hidden />
@@ -348,7 +349,10 @@ function Hero({ media }: { media: Media }) {
               }
             />
           )}
-          <Button icon={<ListPlus className="size-4" />} onClick={() => setCollectOpen(true)}>
+          <Button
+            icon={<ListPlus className="size-4" />}
+            onClick={() => (canWrite ? setCollectOpen(true) : requireSignIn('build collections'))}
+          >
             Collection
           </Button>
         </div>

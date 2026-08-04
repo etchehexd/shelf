@@ -262,10 +262,39 @@ progress are different activities with different gestures — one is drag-and-dr
 whole ordered list, the other is `+1` on a single row — and sharing a page meant neither got
 the space it needed.
 
-**Every route works signed out.** `/profile` is the sole exception and only when sync is
-configured: with no session there is no identity for it to be *of*. Nothing else in the
-product is gated, so guest mode is the normal mode rather than a degraded one — the same
-principle as local-only sync above, applied to auth.
+**Reading is open, writing needs an account.** `/discover` and `/media/:id` render in full
+for anyone. `/`, `/library`, `/rankings`, `/collections`, `/collections/:id` and `/profile`
+wall, because every one of them is a view of personal data that does not exist yet.
+
+The predicate lives in exactly one place — `canWrite` on the auth context:
+
+```ts
+canWrite = !isSyncConfigured || Boolean(session)
+```
+
+Two cases resolve true and they are not the same thing. Signed in, there is an account to
+attach the change to. **Sync not configured**, there is no sign-in to require — gating there
+would brick the app with no way out from inside it, since the local-only mode described
+above has no auth at all. So the rule is "signed in *if signing in is possible*".
+
+Enforcement is at chokepoints, not call sites:
+
+| chokepoint | covers |
+|---|---|
+| `useTracking`'s `guard()` | every entry mutation — add, progress, volumes, status, score, note, favorite, repeat, remove |
+| `CollectionChecklist` / `AddToCollectionDialog` | collection membership and creation |
+| `RankDialog.commit` | ranking |
+| route walls | anything reachable only from a gated page |
+| `Onboarding` gated on `canWrite` | the importer, which writes entries straight into the store |
+
+That last row is the one worth stating out loud: the import path bypasses `useTracking`
+entirely, so without an explicit gate a signed-out visitor could land three hundred rows in
+a library with no account to hold them. Gating per call site instead of per chokepoint would
+mean ~30 checks that drift, and the forgotten one is silent — the store accepts the write,
+persists it, and queues an outbox op that can never flush.
+
+Because no write is possible before sign-in, **guest data cannot exist**, and first sign-in
+has nothing to reconcile.
 
 Filter state lives in the URL query string, not component state, so any library view is
 linkable and survives reload and back-navigation.

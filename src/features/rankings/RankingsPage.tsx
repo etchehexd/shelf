@@ -38,6 +38,8 @@ import { KIND_LABEL, type MediaKind, type MediaSummary } from '@/data/anilist/ty
 import { useLibrary } from '@/data/store/library'
 import { usePrefs } from '@/data/store/prefs'
 import { useEntriesOfKind, useRankedIds } from '@/data/store/selectors'
+import { useAuth } from '@/data/supabase/auth'
+import { SignInWall } from '@/features/auth/SignInWall'
 import type { LibraryEntry } from '@/data/store/types'
 import { cn } from '@/lib/cn'
 import { ordinal, pluralize } from '@/lib/format'
@@ -60,6 +62,7 @@ import { ordinal, pluralize } from '@/lib/format'
  * a #1, and that judgment is the whole point of the page.
  */
 export default function RankingsPage() {
+  const { signedOut } = useAuth()
   const [params, setParams] = useSearchParams()
   const kind = (params.get('kind') as MediaKind) || 'anime'
 
@@ -101,6 +104,15 @@ export default function RankingsPage() {
     .filter(Boolean) as MediaSummary[]
 
   const unranked = entries.length - rankedIds.length
+
+  if (signedOut) {
+    return (
+      <SignInWall section="Rankings" headline="An order is an opinion.">
+        Ranking is the one thing here that isn't a fact about a show — it's a judgment about
+        which one comes first, and it only means something attached to the person who made it.
+      </SignInWall>
+    )
+  }
 
   return (
     <div className="space-y-10 pt-1">

@@ -722,15 +722,35 @@ data came from.
 
 ### Profile — someone's room, not their account
 
-**Guest mode is the default, not a fallback.** Signed out, the entire product works:
-tracking, progress, scores, rankings, collections, discovery. Nothing is gated, nothing is
-teased, no dialog interrupts to ask for an account.
+**You have to sign in to keep anything.** Reading is open; writing is not.
 
-Profile is the single exception, and it is an honest one — it is the page you would *share*,
-the statistics you would keep *across devices*, the name on the door. Without an account
-there is nobody whose room it is, no link to share it at, and nothing keeping it in sync. So
-signed out the destination disappears from the rail and the route explains itself in one
-sentence, leading with what already works rather than with what is locked.
+| | signed out | signed in |
+|---|---|---|
+| Discover, search, media pages | ✅ fully | ✅ |
+| Home, Library, Rankings, Collections, Profile | wall | ✅ |
+| any write — add, progress, score, rank, file, note | prompt | ✅ |
+
+The line is *reading vs. keeping*, not *browsing vs. everything*. Somebody evaluating the
+app can search the whole catalog, open any title, and read the entire record — synopsis,
+characters, staff, relations, community score. What they cannot do is put it anywhere,
+because a shelf has to belong to somebody before anything goes on it.
+
+Three rules keep that from feeling like a bait-and-switch:
+
+- **Nothing is hidden, only gated.** Every destination stays in the rail, including the five
+  that wall. Hiding them would leave two items and make the product look like a search box —
+  the opposite of the truth, shown to exactly the people deciding whether to sign up. Poster
+  controls stay visible too: you see what the app does, and find out about the account when
+  you reach for it.
+- **The refusal names what you were doing.** "You need an account to *score what you have
+  finished*", not "sign in to continue". Being told you need an account is much easier to
+  accept when the sentence proves the app understood the gesture.
+- **Every wall says what stays open**, and every wall carries a *Look around first* button
+  back to Discover. Six routes, one `SignInWall` component — six bespoke sign-in screens is
+  how an app ends up feeling like six apps.
+
+Nothing is written locally before sign-in, so there is never any guest data to reconcile
+afterwards, and the clean-slate rule below stays exactly true.
 
 **A new profile is empty.** Genuinely: no display name, no handle, no bio, no genres, no
 widgets arranged, and `is_public` off. Sign-up collects an email and a password and nothing

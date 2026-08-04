@@ -24,6 +24,8 @@ import { useMediaMap } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
 import { KIND_LABEL, totalUnits, type MediaKind, type MediaSummary } from '@/data/anilist/types'
 import { usePrefs, type LibrarySort, type ViewMode } from '@/data/store/prefs'
+import { useAuth } from '@/data/supabase/auth'
+import { SignInWall } from '@/features/auth/SignInWall'
 import { useEntriesOfKind, useStatusCounts } from '@/data/store/selectors'
 import { STATUS_ORDER, statusLabel, type EntryStatus, type LibraryEntry } from '@/data/store/types'
 import { MediaCard, MediaRow, ShelfCover } from '@/features/tracking/cards'
@@ -55,6 +57,7 @@ const SORTS: { value: LibrarySort; label: string }[] = [
  * both.
  */
 export default function LibraryPage() {
+  const { signedOut } = useAuth()
   const [params, setParams] = useSearchParams()
 
   const defaultView = usePrefs((s) => s.defaultView)
@@ -130,6 +133,16 @@ export default function LibraryPage() {
 
   const total = entries.length
   const filtering = Boolean(status || genre || query)
+
+  if (signedOut) {
+    return (
+      <SignInWall section="Library" headline="Nowhere to put it yet.">
+        A library is a record of what you've watched, where you are in it, and what you made
+        of it. It has to belong to an account — otherwise it lives on one browser and is gone
+        the first time you clear it.
+      </SignInWall>
+    )
+  }
 
   return (
     <div className="space-y-10 pt-1">

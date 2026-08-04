@@ -5,6 +5,8 @@ import { canRate, statusLabel, type EntryStatus } from '@/data/store/types'
 import { totalUnits, unitName, type MediaKind, type MediaSummary } from '@/data/anilist/types'
 import { displayTitle } from '@/data/anilist/normalize'
 import { usePrefs } from '@/data/store/prefs'
+import { useAuth } from '@/data/supabase/auth'
+import { requireSignIn } from '@/features/auth/gate'
 import { ratingWord, toast } from '@/design'
 
 /**
@@ -17,6 +19,25 @@ import { ratingWord, toast } from '@/design'
 export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 'episodes' | 'chapters' | 'volumes'> | null | undefined) {
   const entry = useEntry(media?.id)
   const language = usePrefs((s) => s.titleLanguage)
+  const { canWrite } = useAuth()
+
+  /**
+   * The write gate, applied once at the chokepoint every entry mutation
+   * already passes through.
+   *
+   * Gating at each call site instead would mean ~30 checks that can drift, and
+   * the one that gets forgotten is a silent hole: the store would happily
+   * accept the write, persist it, and queue an outbox op for a user who has
+   * nowhere to sync it to.
+   */
+  const guard = useCallback(
+    (reason: string) => {
+      if (canWrite) return true
+      requireSignIn(reason)
+      return false
+    },
+    [canWrite],
+  )
 
   const addEntry = useLibrary((s) => s.addEntry)
   const removeEntry = useLibrary((s) => s.removeEntry)
@@ -43,37 +64,37 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
 
   const setProgress = useCallback(
     (next: number) => {
-      if (!media) return
+      if (!media || !guard('keep track of where you are')) return
       ensureEntry('current')
       setProgressAction(media.id, next, total)
     },
-    [media, total, ensureEntry, setProgressAction],
+    [media, total, guard, ensureEntry, setProgressAction],
   )
 
   const bump = useCallback(() => {
-    if (!media) return
+    if (!media || !guard('keep track of where you are')) return
     ensureEntry('current')
     const current = useLibrary.getState().entries[media.id]?.progress ?? 0
     setProgressAction(media.id, current + 1, total)
-  }, [media, total, ensureEntry, setProgressAction])
+  }, [media, total, guard, ensureEntry, setProgressAction])
 
   const setVolumes = useCallback(
     (next: number) => {
-      if (!media) return
+      if (!media || !guard('keep track of where you are')) return
       ensureEntry('current')
       setVolumesAction(media.id, next, media.volumes ?? null)
     },
-    [media, ensureEntry, setVolumesAction],
+    [media, guard, ensureEntry, setVolumesAction],
   )
 
   const setStatus = useCallback(
     (status: EntryStatus) => {
-      if (!media) return
+      if (!media || !guard('put this on a shelf')) return
       ensureEntry(status)
       setStatusAction(media.id, status, total)
       toast({ message: `${title} — ${statusLabel(status, kind)}` })
     },
-    [media, total, title, kind, ensureEntry, setStatusAction],
+    [media, total, title, kind, guard, ensureEntry, setStatusAction],
   )
 
   /**
@@ -84,7 +105,7 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
    */
   const setScore = useCallback(
     (score: number | null) => {
-      if (!media) return
+      if (!media || !guard('score what you have finished')) return
       ensureEntry('completed')
       setScoreAction(media.id, score)
       toast({
@@ -94,44 +115,54 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
             : `${title} — ${score}/10, ${ratingWord(score).toLowerCase()}`,
       })
     },
-    [media, title, ensureEntry, setScoreAction],
+    [media, title, guard, ensureEntry, setScoreAction],
   )
 
   const setNote = useCallback(
     (note: string | null) => {
-      if (!media) return
+      if (!media || !guard('write notes')) return
       ensureEntry()
       setNoteAction(media.id, note?.trim() ? note.trim() : null)
     },
-    [media, ensureEntry, setNoteAction],
+    [media, guard, ensureEntry, setNoteAction],
   )
 
   const add = useCallback(
     (status: EntryStatus = 'planning') => {
-      if (!media) return
+      if (!media || !guard('build a library')) return
       addEntry(media, status)
       toast({ message: `${title} added to ${statusLabel(status, kind).toLowerCase()}` })
     },
-    [media, title, kind, addEntry],
+    [media, title, kind, guard, addEntry],
   )
 
   /** Removal is the one destructive action here, so it always offers Undo. */
   const remove = useCallback(() => {
-    if (!media) return
+    if (!media || !guard('change your library')) return
     const snapshot = useLibrary.getState().entries[media.id]
     removeEntry(media.id)
     toast({
       message: `${title} removed`,
       action: snapshot ? { label: 'Undo', onClick: () => restoreEntry(snapshot) } : undefined,
     })
-  }, [media, title, removeEntry, restoreEntry])
+  }, [media, title, guard, removeEntry, restoreEntry])
 
   return useMemo(
     () => ({
       entry,
       inLibrary: Boolean(entry),
-      /** Whether the rating control should be offered at all. */
+      /**
+       * Whether the rating control should be offered at all.
+       *
+       * Still gated on completion, not on auth: a signed-out visitor sees the
+       * same affordances a signed-in one would, and finds out about the account
+       * when they reach for one. Hiding controls instead would make the app
+       * look less capable than it is to exactly the people deciding whether to
+       * sign up.
+       */
       canRate: canRate(entry?.status),
+      /** Surfaces that need to *look* different signed out, rather than refuse. */
+      canWrite,
       total,
       unit: unitName(kind),
       title,
@@ -143,15 +174,23 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
       setStatus,
       setScore,
       setNote,
-      toggleFavorite: () => media && toggleFavorite(media.id),
-      addRepeat: () => media && addRepeat(media.id),
+      toggleFavorite: () => {
+        if (!media || !guard('mark favorites')) return
+        toggleFavorite(media.id)
+      },
+      addRepeat: () => {
+        if (!media || !guard('log a rewatch')) return
+        addRepeat(media.id)
+      },
     }),
     [
       entry,
+      canWrite,
       total,
       kind,
       title,
       media,
+      guard,
       add,
       remove,
       setProgress,

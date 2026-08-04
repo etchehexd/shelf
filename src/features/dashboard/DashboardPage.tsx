@@ -40,11 +40,14 @@ import {
 import type { ActivityEvent, Collection } from '@/data/store/types'
 import { FeatureCard, ShelfCover } from '@/features/tracking/cards'
 import { useLibrary } from '@/data/store/library'
+import { useAuth } from '@/data/supabase/auth'
+import { SignInWall } from '@/features/auth/SignInWall'
 import { airingDayShort, dayLabel, fullDate, greeting, timeLabel } from '@/lib/dates'
 import { pluralize, scoreText } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 export default function DashboardPage() {
+  const { signedOut } = useAuth()
   const profile = useLibrary((s) => s.profile)
   const trackedIds = useTrackedIds()
   const { map, isLoading } = useMediaMap(trackedIds)
@@ -79,6 +82,23 @@ export default function DashboardPage() {
   // Blank until someone names themselves — the greeting drops the name rather
   // than inventing one.
   const firstName = profile.displayName.trim().split(' ')[0] || null
+
+  // Every panel here is a reflection of your own library, so signed out this
+  // page is not a reduced version of itself — it is nine empty rectangles. The
+  // wall is the honest render, and it points at the one place worth going.
+  if (signedOut) {
+    return (
+      <SignInWall
+        section="Home"
+        headline="This page is made of your own shelf."
+        aside="Nothing here is a chart of what's popular — it's what you're partway through, what you nearly finished, what you rated and when. Head to Discover to see the catalog without an account."
+      >
+        Continue watching, nearly finished, this week's numbers, the shape of your scores.
+        All of it is derived from what you've tracked, which is why there's nothing to show
+        until there's an account to track it against.
+      </SignInWall>
+    )
+  }
 
   return (
     <div className="space-y-16 pt-1 md:space-y-20">

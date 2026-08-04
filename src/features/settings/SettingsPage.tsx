@@ -19,6 +19,7 @@ import { usePrefs, type ThemeSetting, type ViewMode } from '@/data/store/prefs'
 import { onSyncStatus, type SyncStatus } from '@/data/sync/engine'
 import { clearDeadLetters, deadLetters, type Op } from '@/data/sync/outbox'
 import { wipeEverything } from '@/data/sync/wipe'
+import { cn } from '@/lib/cn'
 import type { TitleLanguage } from '@/data/anilist/normalize'
 import { pluralize } from '@/lib/format'
 import { relativeShort } from '@/lib/dates'
@@ -28,7 +29,7 @@ export default function SettingsPage() {
   const profile = useLibrary((s) => s.profile)
   const updateProfile = useLibrary((s) => s.updateProfile)
   const reset = useLibrary((s) => s.reset)
-  const { enabled, session, signOut } = useAuth()
+  const { enabled, session, signedOut, signOut } = useAuth()
 
   const [sync, setSync] = useState<{ status: SyncStatus; pending: number }>({
     status: 'disabled',
@@ -190,21 +191,27 @@ export default function SettingsPage() {
         </Card>
       </section>
 
-      {/* ----------------------------------------------------------- privacy */}
-      <section className="space-y-5">
-        <SectionHeader title="Privacy" size="sm" />
-        <Card padding="compact">
-          <Switch
-            checked={profile.isPublic}
-            onChange={(isPublic) => updateProfile({ isPublic })}
-            label="Public profile"
-            description="Anyone with your link can see your library, scores and activity."
-          />
-        </Card>
-      </section>
+      {/* ----------------------------------------------------------- privacy
+          Both of the sections below act on an account's data, so signed out
+          they have nothing to act on. Appearance stays — theme and title
+          language are this browser's preferences and belong to whoever is
+          sitting here, account or not. */}
+      {!signedOut && (
+        <section className="space-y-5">
+          <SectionHeader title="Privacy" size="sm" />
+          <Card padding="compact">
+            <Switch
+              checked={profile.isPublic}
+              onChange={(isPublic) => updateProfile({ isPublic })}
+              label="Public profile"
+              description="Anyone with your link can see your library, scores and activity."
+            />
+          </Card>
+        </section>
+      )}
 
       {/* ------------------------------------------------------------- data */}
-      <section className="space-y-5">
+      <section className={cn('space-y-5', signedOut && 'hidden')}>
         <SectionHeader title="Data" size="sm" />
         <Card padding="compact" className="space-y-4">
           <SettingRow

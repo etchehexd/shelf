@@ -8,6 +8,22 @@ interface AuthValue {
   loading: boolean
   /** False when no Supabase credentials are configured — local-only mode. */
   enabled: boolean
+  /**
+   * Whether this visitor may change anything.
+   *
+   * The single authority for it, so no screen can invent its own answer. Two
+   * cases resolve to true and they are not the same thing:
+   *
+   *   signed in            — an account exists to attach the change to
+   *   sync not configured  — there is no sign-in to require, so requiring one
+   *                          would brick the app with no way out from inside it
+   *
+   * Everything else is a read-only visit: browse, search, open a title, see
+   * what the product is. Nothing is written until there is somewhere to put it.
+   */
+  canWrite: boolean
+  /** True only when a sign-in is possible and hasn't happened. */
+  signedOut: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
@@ -51,6 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       enabled: isSyncConfigured,
+      canWrite: !isSyncConfigured || Boolean(session),
+      signedOut: isSyncConfigured && !session,
 
       signIn: async (email, password) => {
         if (!supabase) return { error: 'Sync is not configured.' }

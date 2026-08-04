@@ -35,6 +35,8 @@ import { totalUnits, unitName, type MediaKind, type MediaSummary } from '@/data/
 import { useMediaSummary } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
 import { usePrefs } from '@/data/store/prefs'
+import { useAuth } from '@/data/supabase/auth'
+import { requireSignIn } from '@/features/auth/gate'
 import { useTracking } from './useTracking'
 
 const STATUS_ICON: Record<EntryStatus, typeof CircleDot> = {
@@ -281,11 +283,18 @@ export function RankDialog({
   const removeRank = useLibrary((s) => s.removeRank)
   const entries = useLibrary((s) => s.entries)
 
+  const { canWrite } = useAuth()
+
   const [target, setTarget] = useState(String(currentRank ?? 1))
 
   const listLength = rankedIds.length + (currentRank ? 0 : 1)
 
   const commit = () => {
+    if (!canWrite) {
+      onClose()
+      requireSignIn('rank what you have watched')
+      return
+    }
     const parsed = Number.parseInt(target, 10)
     if (Number.isNaN(parsed)) return onClose()
     const index = Math.max(0, Math.min(listLength - 1, parsed - 1))
@@ -430,6 +439,7 @@ export function CollectionChecklist({
   const addToCollection = useLibrary((s) => s.addToCollection)
   const removeFromCollection = useLibrary((s) => s.removeFromCollection)
   const createCollection = useLibrary((s) => s.createCollection)
+  const { canWrite } = useAuth()
 
   const [query, setQuery] = useState('')
 
@@ -442,11 +452,32 @@ export function CollectionChecklist({
 
   const create = () => {
     const name = query.trim()
-    if (!name) return
+    if (!name || !canWrite) return
     const id = createCollection({ name })
     addToCollection(id, media)
     toast({ message: `${name} started` })
     setQuery('')
+  }
+
+  /**
+   * Signed out this is a shelf you cannot reach, so it says so once instead of
+   * rendering an empty checklist. A list of zero collections would read as
+   * "you have none" rather than "you have no account", which is the wrong
+   * problem to hand someone.
+   */
+  if (!canWrite) {
+    return (
+      <div className={cn('px-2.5 py-3', className)}>
+        <p className="text-meta text-ink-2">Collections need an account.</p>
+        <button
+          type="button"
+          onClick={() => requireSignIn('build collections')}
+          className="label-cat label-cat-plain mt-2 text-accent hover:underline"
+        >
+          Sign in
+        </button>
+      </div>
+    )
   }
 
   return (

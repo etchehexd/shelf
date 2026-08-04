@@ -5,6 +5,7 @@ import { ArrowRight, Check, Download, Layers, Search, Upload } from 'lucide-reac
 import { Button, Eyebrow, Input, Rule, SegmentedControl, useScrollLock } from '@/design'
 import { useLibrary } from '@/data/store/library'
 import { usePrefs } from '@/data/store/prefs'
+import { useAuth } from '@/data/supabase/auth'
 import { cn } from '@/lib/cn'
 import { importFromAniList, importFromMal, type ImportProgress } from './import'
 
@@ -29,8 +30,15 @@ export function Onboarding() {
   const setOnboarded = usePrefs((s) => s.setOnboarded)
   const hasLibrary = useLibrary((s) => Object.keys(s.entries).length > 0)
 
+  // The importer writes entries straight into the store, which would be a hole
+  // straight through the write gate — a signed-out visitor could land three
+  // hundred titles in a library that has no account to hold them. First run
+  // begins once there is somewhere for it to go; until then the sign-in walls
+  // do this screen's job.
+  const { canWrite } = useAuth()
+
   const [step, setStep] = useState<'welcome' | 'import'>('welcome')
-  const open = !onboarded && !hasLibrary
+  const open = canWrite && !onboarded && !hasLibrary
 
   useScrollLock(open)
 

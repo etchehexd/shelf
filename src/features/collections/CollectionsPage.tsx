@@ -5,6 +5,8 @@ import { Button, CoverStack, EmptyState, IconButton, Pill } from '@/design'
 import { useMediaMap } from '@/data/anilist/hooks'
 import { useCollections, useTrackedIds } from '@/data/store/selectors'
 import { useLibrary } from '@/data/store/library'
+import { useAuth } from '@/data/supabase/auth'
+import { SignInWall } from '@/features/auth/SignInWall'
 import type { Collection } from '@/data/store/types'
 import type { MediaSummary } from '@/data/anilist/types'
 import { cn } from '@/lib/cn'
@@ -24,6 +26,7 @@ const PRIVACY_ICON = { private: Lock, unlisted: Link2, public: Globe } as const
  * a repeating tile. No two adjacent cards look the same.
  */
 export default function CollectionsPage() {
+  const { signedOut } = useAuth()
   const collections = useCollections()
   const hasLibrary = useLibrary((s) => Object.keys(s.entries).length > 0)
   const [editing, setEditing] = useState(false)
@@ -33,6 +36,16 @@ export default function CollectionsPage() {
   const { map } = useMediaMap(trackedIds)
 
   const [featured, ...rest] = collections
+
+  if (signedOut) {
+    return (
+      <SignInWall section="Collections" headline="Curation is the point.">
+        Collections are the signature of this product — the comfort rewatches, the five you'd
+        defend, the best openings. They're something you make and something you share, and
+        both of those need an account behind them.
+      </SignInWall>
+    )
+  }
 
   return (
     <div className="space-y-12 pt-1">
