@@ -2,6 +2,7 @@
 -- Reset seeded profile identities
 --
 -- DESTRUCTIVE. Read this before running it.
+-- Requires 0002 to have run first — it references `favorite_genres`.
 --
 -- Early builds of this app created every profile pre-filled: a display name
 -- derived from the email's local part and a hand-picked handle. The schema no
