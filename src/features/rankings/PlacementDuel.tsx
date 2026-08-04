@@ -67,23 +67,39 @@ export function PlacementDuel({ challenger, kind, open, onClose, resolve }: Plac
   const [field, setField] = useState<number[]>([])
   const [lo, setLo] = useState(0)
   const [hi, setHi] = useState(0)
+  /**
+   * Whether the effect below has run for this opening.
+   *
+   * Without it the first render is indistinguishable from a finished duel:
+   * `field` is `[]` and `lo === hi === 0`, which reads as "settled", and the
+   * component would fall straight through to rendering an opponent that does
+   * not exist. That crashed the page white on every single open — the bounds
+   * have to be *seeded* before they mean anything, and an empty range that has
+   * not been seeded yet is not the same state as one that has.
+   */
+  const [seeded, setSeeded] = useState(false)
+
   /** Every (lo, hi) we have been at, so a wrong tap is one press from undone. */
   const [history, setHistory] = useState<{ lo: number; hi: number }[]>([])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setSeeded(false)
+      return
+    }
     const next = rankedIds.filter((id) => id !== challenger.id)
     setField(next)
     setLo(0)
     setHi(next.length)
     setHistory([])
+    setSeeded(true)
     // Deliberately keyed on `open` alone: re-seeding mid-duel because the
     // store ticked would restart the questions from the top.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, challenger.id])
 
-  const settled = lo >= hi
-  const mid = settled ? -1 : Math.floor((lo + hi) / 2)
+  const settled = seeded && lo >= hi
+  const mid = seeded && !settled ? Math.floor((lo + hi) / 2) : -1
   const opponentId = mid >= 0 ? field[mid] : undefined
   const opponent = opponentId != null ? resolve(opponentId) : undefined
 
@@ -112,12 +128,13 @@ export function PlacementDuel({ challenger, kind, open, onClose, resolve }: Plac
   }
 
   // An empty board needs no questions — the first title in is simply first.
+  // Gated on `seeded` so this cannot fire against the pre-seed state, which is
+  // also an empty field but means "not ready yet" rather than "nothing to
+  // compare against".
   useEffect(() => {
-    if (open && field.length === 0 && rankedIds.filter((id) => id !== challenger.id).length === 0) {
-      commit(0)
-    }
+    if (open && seeded && field.length === 0) commit(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, field.length])
+  }, [open, seeded, field.length])
 
   const answer = (challengerWins: boolean) => {
     if (mid < 0) return
@@ -159,7 +176,17 @@ export function PlacementDuel({ challenger, kind, open, onClose, resolve }: Plac
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  if (!opponent && !settled) return null
+  /**
+   * No opponent, nothing to render — full stop.
+   *
+   * This used to read `if (!opponent && !settled)`, which let three separate
+   * states through to a render that dereferences `opponent`: the pre-seed
+   * frame, the frame after the last answer but before `onClose` lands, and the
+   * empty-board case on its way to `commit(0)`. All three crashed the page
+   * white. There is exactly one condition worth testing here and it is whether
+   * there is something to draw.
+   */
+  if (!opponent) return null
 
   return (
     <Dialog
@@ -222,13 +249,13 @@ export function PlacementDuel({ challenger, kind, open, onClose, resolve }: Plac
         </span>
 
         <Contender
-          media={opponent!}
-          score={entryOf.get(opponent!.id)?.score ?? null}
-          progress={entryOf.get(opponent!.id)?.progress ?? 0}
+          media={opponent}
+          score={entryOf.get(opponent.id)?.score ?? null}
+          progress={entryOf.get(opponent.id)?.progress ?? 0}
           kind={kind}
           language={language}
           side="right"
-          rank={mid >= 0 ? field.indexOf(opponent!.id) + 1 : undefined}
+          rank={field.indexOf(opponent.id) + 1}
           onPick={() => answer(false)}
         />
       </div>

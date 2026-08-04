@@ -289,14 +289,41 @@ export default function CollectionDetailPage() {
                 )}
               </SortableContext>
 
-              {/* The dragged cover follows the pointer at full size and tilted,
-                  so the thing you picked up looks picked up. */}
+              {/* The thing you picked up, tilted, so it looks picked up.
+
+                  The width is pinned rather than inherited. `DragOverlay`
+                  sizes itself to the node being dragged, and in the ranked
+                  layout that node is a full-width *row* — so a `w-full` cover
+                  with `aspect-[2/3]` resolved to something like 1200×1800 and
+                  a poster the size of a billboard swallowed the screen the
+                  moment you started dragging. Reordering was impossible
+                  because you could no longer see the list you were reordering.
+
+                  A grid tile drags as a poster; a row drags as a row. Matching
+                  the shape of the source is also just what a lifted item
+                  should look like. */}
               <DragOverlay dropAnimation={{ duration: 220, easing: 'cubic-bezier(.16,1,.3,1)' }}>
-                {draggedMedia && (
-                  <div className="w-full rotate-2 opacity-95">
-                    <CoverImage src={draggedMedia.coverImage} alt="" color={draggedMedia.color} />
-                  </div>
-                )}
+                {draggedMedia &&
+                  (collection.layout === 'ranked' ? (
+                    <div className="flex w-72 max-w-[80vw] items-center gap-3 rounded-md border border-line-strong bg-surface p-2 shadow-lg">
+                      <span className="w-9 shrink-0">
+                        <CoverImage
+                          src={draggedMedia.coverImage}
+                          alt=""
+                          color={draggedMedia.color}
+                          flat
+                        />
+                      </span>
+                      <span className="clamp-1 min-w-0 flex-1 text-label font-medium text-ink">
+                        {displayTitle(draggedMedia, language)}
+                      </span>
+                      <GripVertical className="size-4 shrink-0 text-ink-3" aria-hidden />
+                    </div>
+                  ) : (
+                    <div className="w-32 rotate-2 opacity-95 shadow-lg">
+                      <CoverImage src={draggedMedia.coverImage} alt="" color={draggedMedia.color} />
+                    </div>
+                  ))}
               </DragOverlay>
             </DndContext>
           ) : collection.layout === 'showcase' ? (
