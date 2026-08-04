@@ -12,6 +12,7 @@ import {
   type SortKey,
 } from './queries'
 import { normalizeMedia, normalizeSummary, type RawMedia } from './normalize'
+import { queryVariants, rankBy, repairVariants } from '@/lib/search'
 import type { Media, MediaKind, MediaSummary } from './types'
 
 export const mediaKeys = {
@@ -109,10 +110,43 @@ export function useMediaSummary(id: number | null | undefined) {
 
 /* -------------------------------------------------------------------------- */
 
-export interface SearchParams {
+/**
+ * The narrowing controls, in the units the interface speaks.
+ *
+ * `scoreFrom` / `scoreTo` are on the 0–10 scale the product displays; the
+ * conversion to the upstream 0–100 happens once, here, so no screen has to
+ * remember which scale it is holding.
+ */
+export interface MediaFilters {
+  genres?: string[]
+  /** Upstream format enums — TV, MOVIE, OVA, MANGA, NOVEL… */
+  formats?: string[]
+  /** Release-year range, inclusive at both ends. */
+  yearFrom?: number
+  yearTo?: number
+  /** Community score range, 0–10, inclusive. */
+  scoreFrom?: number
+  scoreTo?: number
+  statuses?: string[]
+}
+
+/** True when a filter set would actually narrow anything. */
+export function hasFilters(f: MediaFilters | undefined): boolean {
+  if (!f) return false
+  return Boolean(
+    f.genres?.length ||
+      f.formats?.length ||
+      f.yearFrom != null ||
+      f.yearTo != null ||
+      f.scoreFrom != null ||
+      f.scoreTo != null ||
+      f.statuses?.length,
+  )
+}
+
+export interface SearchParams extends MediaFilters {
   search?: string
   kind?: MediaKind
-  genres?: string[]
   season?: string
   seasonYear?: number
   sort?: SortKey
@@ -121,51 +155,183 @@ export interface SearchParams {
   enabled?: boolean
 }
 
-export function useMediaSearch({
+/**
+ * Turns the app's filter vocabulary into upstream's.
+ *
+ * `format_in` from the filter wins over the kind's default formats, so
+ * "Manga → Light novel" narrows rather than contradicting itself, and an empty
+ * selection falls back to whatever the kind implies.
+ */
+function buildVariables({
   search,
   kind = 'anime',
   genres,
+  formats,
+  yearFrom,
+  yearTo,
+  scoreFrom,
+  scoreTo,
+  statuses,
   season,
   seasonYear,
   sort = 'trending',
   page = 1,
   perPage = 24,
-  enabled = true,
 }: SearchParams) {
-  const { type, formats } = kindFilters(kind)
+  const kindDefaults = kindFilters(kind)
 
-  // A text search must sort by match quality; a browse must not.
-  const resolvedSort = search ? SORT_OPTIONS.relevance : SORT_OPTIONS[sort]
-
-  const variables = {
+  return {
     search: search || undefined,
-    type,
-    formats,
+    type: kindDefaults.type,
+    formats: formats?.length ? formats : kindDefaults.formats,
     genres: genres?.length ? genres : undefined,
     season,
     seasonYear,
-    sort: resolvedSort,
+    // Packed yyyymmdd. `_greater` / `_lesser` are exclusive upstream, so the
+    // bounds step one day outside the range the user asked for — otherwise
+    // "2015 to 2015" silently excludes all of 2015.
+    yearFrom: yearFrom != null ? yearFrom * 10000 : undefined,
+    yearTo: yearTo != null ? yearTo * 10000 + 1232 : undefined,
+    scoreFrom: scoreFrom != null ? Math.round(scoreFrom * 10) - 1 : undefined,
+    scoreTo: scoreTo != null ? Math.round(scoreTo * 10) + 1 : undefined,
+    statuses: statuses?.length ? statuses : undefined,
+    // A text search must sort by match quality; a browse must not.
+    sort: search ? SORT_OPTIONS.relevance : SORT_OPTIONS[sort],
     page,
     perPage,
   }
+}
+
+async function runSearch(variables: ReturnType<typeof buildVariables>, signal: AbortSignal) {
+  const data = await anilist<{
+    Page: { pageInfo: { hasNextPage: boolean; total: number }; media: RawMedia[] }
+  }>(SEARCH_QUERY, variables, signal)
+
+  return {
+    media: data.Page.media.map(normalizeSummary),
+    hasNextPage: data.Page.pageInfo.hasNextPage,
+    total: data.Page.pageInfo.total,
+  }
+}
+
+export function useMediaSearch(params: SearchParams) {
+  const { search, enabled = true } = params
+  const variables = buildVariables(params)
 
   return useQuery({
     queryKey: mediaKeys.search(variables),
     enabled: enabled && (search == null || search.length === 0 || search.length >= 2),
     // Search results churn; browse results don't.
     staleTime: search ? 5 * 60 * 1000 : 60 * 60 * 1000,
-    queryFn: async ({ signal }) => {
-      const data = await anilist<{
-        Page: { pageInfo: { hasNextPage: boolean; total: number }; media: RawMedia[] }
-      }>(SEARCH_QUERY, variables, signal)
-
-      return {
-        media: data.Page.media.map(normalizeSummary),
-        hasNextPage: data.Page.pageInfo.hasNextPage,
-        total: data.Page.pageInfo.total,
-      }
-    },
+    queryFn: ({ signal }) => runSearch(variables, signal),
   })
+}
+
+/* ------------------------------------------------------------ title search -- */
+
+/**
+ * The search people actually use.
+ *
+ * Four things happen here that a single upstream query cannot do:
+ *
+ *  1. **Several spellings at once.** "rezero" returns nothing upstream because
+ *     nothing is stored under that string; "re zero" returns everything.
+ *     `queryVariants` produces the plausible spellings and all of them are
+ *     fetched in parallel.
+ *  2. **One merged candidate pool.** Results are unioned by id, so a title
+ *     found by only one variant still competes.
+ *  3. **Local ranking.** The pool is ordered by `rankBy` against every name a
+ *     record answers to — romaji, english, native and synonyms — which is what
+ *     puts One Piece at the top of "one" instead of whatever upstream's
+ *     relevance sort happened to return first.
+ *  4. **Spelling repair, on failure only.** Upstream finds nothing at all for
+ *     a mistyped single word, so an empty first wave triggers a second one
+ *     built from `repairVariants` — transpositions, deletions and doublings of
+ *     the longest token. "shigneki" comes back as Shingeki no Kyojin.
+ *
+ * Over-fetched on purpose: ranking 50 candidates well beats ranking 20 badly,
+ * and the requests are cached per variant.
+ */
+export function useTitleSearch({
+  query,
+  kind = 'anime',
+  filters,
+  perPage = 50,
+  limit = 40,
+  enabled = true,
+}: {
+  query: string
+  kind?: MediaKind
+  filters?: MediaFilters
+  perPage?: number
+  limit?: number
+  enabled?: boolean
+}) {
+  const trimmed = query.trim()
+  const active = enabled && trimmed.length >= 2
+
+  const variants = useMemo(() => (active ? queryVariants(trimmed) : []), [trimmed, active])
+  const repairs = useMemo(() => (active ? repairVariants(trimmed) : []), [trimmed, active])
+
+  // Serialized so the memo below has a stable dependency — filter objects are
+  // rebuilt on every render of the page that owns them.
+  const filterKey = JSON.stringify(filters ?? {})
+
+  const buildQuery = (variant: string, enabledFlag: boolean) => {
+    const variables = buildVariables({ search: variant, kind, perPage, ...(filters ?? {}) })
+    return {
+      queryKey: mediaKeys.search(variables),
+      enabled: enabledFlag,
+      staleTime: 5 * 60 * 1000,
+      queryFn: ({ signal }: { signal: AbortSignal }) => runSearch(variables, signal),
+    }
+  }
+
+  const primary = useQueries({ queries: variants.map((v) => buildQuery(v, true)) })
+
+  const primaryLoading = primary.length > 0 && primary.some((r) => r.isLoading)
+  const primaryMedia = primary.flatMap((r) => r.data?.media ?? [])
+
+  /**
+   * The repair wave only runs when the first one settled with nothing.
+   *
+   * That ordering is the whole point: a correctly spelled query costs the same
+   * two or three requests it always did, and only a search that has already
+   * failed pays for the spelling repairs.
+   */
+  const needsRepair = active && !primaryLoading && primaryMedia.length === 0
+  const repaired = useQueries({ queries: repairs.map((v) => buildQuery(v, needsRepair)) })
+
+  const results = [...primary, ...repaired]
+  const isLoading = primaryLoading || (needsRepair && repaired.some((r) => r.isLoading))
+  const isError = results.length > 0 && results.every((r) => r.isError)
+
+  const pooled = [...primaryMedia, ...repaired.flatMap((r) => r.data?.media ?? [])]
+  const poolKey = pooled.map((m) => m.id).join(',')
+
+  const media = useMemo(() => {
+    if (!active) return []
+
+    const byId = new Map<number, MediaSummary>()
+    for (const m of pooled) if (!byId.has(m.id)) byId.set(m.id, m)
+
+    return rankBy(
+      trimmed,
+      [...byId.values()],
+      (m) => ({
+        names: [m.title.english, m.title.romaji, m.title.native],
+        aliases: m.synonyms,
+        popularity: m.popularity,
+      }),
+    )
+      .slice(0, limit)
+      .map((r) => r.item)
+    // `poolKey` and `filterKey` stand in for the pool and the filters, both of
+    // which are new object identities on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolKey, filterKey, trimmed, active, limit])
+
+  return { media, isLoading, isError, isActive: active }
 }
 
 /* -------------------------------------------------------------------------- */

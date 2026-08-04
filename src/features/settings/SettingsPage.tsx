@@ -134,8 +134,13 @@ export default function SettingsPage() {
             </>
           ) : (
             <div className="flex items-center justify-between gap-4">
+              {/* Not "sign in to sync": syncing is what an account *does*, but
+                  it is not why you need one. Nothing is kept without one, and
+                  a settings row that undersells that contradicts every wall in
+                  the app. */}
               <p className="text-body text-ink-2">
-                Sign in to sync your library across devices and share collections.
+                Your library needs an account to live in. Signing in is what gives it one — and
+                then it follows you between devices.
               </p>
               <Link
                 to="/auth"

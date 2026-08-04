@@ -74,6 +74,8 @@ export interface MediaSummary {
   format: string | null
   status: string | null
   title: MediaTitle
+  /** Alternate spellings the record is also known by. Feeds search ranking. */
+  synonyms: string[]
   coverImage: string | null
   coverImageLarge: string | null
   color: string | null
@@ -83,6 +85,8 @@ export interface MediaSummary {
   chapters: number | null
   volumes: number | null
   averageScore: number | null
+  /** How many people track it. A search tiebreaker, never a ranking. */
+  popularity: number
   genres: string[]
   isAdult: boolean
   nextAiringEpisode: AiringEpisode | null
@@ -94,7 +98,6 @@ export interface Media extends MediaSummary {
   duration: number | null
   source: string | null
   countryOfOrigin: string | null
-  popularity: number
   favorites: number
   meanScore: number | null
   siteUrl: string | null

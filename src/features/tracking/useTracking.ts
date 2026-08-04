@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router'
 import { useLibrary } from '@/data/store/library'
 import { useEntry } from '@/data/store/selectors'
 import { canRate, statusLabel, type EntryStatus } from '@/data/store/types'
@@ -20,6 +21,21 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
   const entry = useEntry(media?.id)
   const language = usePrefs((s) => s.titleLanguage)
   const { canWrite } = useAuth()
+  const navigate = useNavigate()
+
+  /**
+   * Read straight from the store rather than through a selector.
+   *
+   * This is only ever asked inside an event handler, and subscribing every
+   * card on a 400-title shelf to the whole rankings array — so that each one
+   * can answer a question none of them will ask until clicked — is a real cost
+   * for no benefit.
+   */
+  const isRanked = useCallback(
+    (kind: MediaKind, mediaId: number) =>
+      useLibrary.getState().rankings.some((r) => r.kind === kind && r.mediaId === mediaId),
+    [],
+  )
 
   /**
    * The write gate, applied once at the chokepoint every entry mutation
@@ -92,9 +108,32 @@ export function useTracking(media: Pick<MediaSummary, 'id' | 'kind' | 'title' | 
       if (!media || !guard('put this on a shelf')) return
       ensureEntry(status)
       setStatusAction(media.id, status, total)
+
+      /**
+       * Finishing something is the moment the opinion exists.
+       *
+       * It is the only point at which "where does this sit against everything
+       * else" is a question you can actually answer, and asking it later means
+       * asking it about a title you last thought about three weeks ago. So the
+       * offer rides on the confirmation toast rather than interrupting with a
+       * dialog — one tap to take it, ignore it and it goes away, and the
+       * ranking page is still there whenever.
+       */
+      if (status === 'completed' && !isRanked(media.kind, media.id)) {
+        toast({
+          message: `${title} — finished`,
+          duration: 7000,
+          action: {
+            label: 'Place it',
+            onClick: () => navigate(`/rankings?kind=${media.kind}&place=${media.id}`),
+          },
+        })
+        return
+      }
+
       toast({ message: `${title} — ${statusLabel(status, kind)}` })
     },
-    [media, total, title, kind, guard, ensureEntry, setStatusAction],
+    [media, total, title, kind, guard, ensureEntry, setStatusAction, navigate],
   )
 
   /**

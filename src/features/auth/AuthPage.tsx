@@ -80,8 +80,8 @@ export default function AuthPage() {
       </h1>
       <p className="mt-2 mb-8 text-body text-ink-2">
         {mode === 'signin'
-          ? 'Sign in to sync your library across devices.'
-          : 'Your library syncs across devices, and collections become shareable.'}
+          ? 'Your library is where you left it.'
+          : 'Everything you track needs somewhere to live. This is it.'}
       </p>
 
       <Card padding="compact">
@@ -141,18 +141,21 @@ export default function AuthPage() {
         </button>
       </p>
 
-      {/* Guest mode is the default, not a fallback, so the way out of this
-          screen is never hidden. Nothing in the app is gated behind an
-          account except the profile, which has nothing to hold without one. */}
+      {/* What is actually open without an account, stated once and honestly.
+          Tracking, ranking and collections all write somewhere, so they wait
+          for an account to write to; browsing never did, so it doesn't. This
+          has to match the walls in SignInWall — two answers to "what do I get
+          for free" is worse than either answer alone. */}
       <p className="mt-8 text-meta text-ink-3">
-        You don't need an account. Everything — tracking, ranking, collections — already works
-        signed out and stays on this device. Signing in adds sync, sharing, and a profile.
+        An account is where your library lives. Tracking, ranking and collections all keep
+        something, so they wait until there's somewhere to keep it. Browsing doesn't — search
+        anything, open any title, read the whole record without signing in.
       </p>
       <Link
-        to="/"
+        to="/discover"
         className="label-cat label-cat-plain mt-5 inline-block hover:text-ink"
       >
-        Keep looking around
+        Look around first
       </Link>
     </Centered>
   )

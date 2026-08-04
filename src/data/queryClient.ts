@@ -43,7 +43,10 @@ if (import.meta.env.DEV) {
  * Bumped whenever the normalized shape changes, so a deploy can't leave users
  * reading last week's field names out of localStorage.
  */
-const CACHE_VERSION = 'shelf-anilist-v1'
+// v2: `synonyms` and `popularity` joined the card fragment. Both feed search
+// ranking, and a cached v1 record has neither — which silently ranked the most
+// popular titles as though nobody watched them.
+const CACHE_VERSION = 'shelf-anilist-v2'
 
 export const persister = createSyncStoragePersister({
   storage: typeof window === 'undefined' ? undefined : window.localStorage,

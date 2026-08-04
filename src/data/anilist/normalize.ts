@@ -59,6 +59,7 @@ export interface RawMedia {
   description?: string | null
   bannerImage?: string | null
   title?: { romaji?: string | null; english?: string | null; native?: string | null } | null
+  synonyms?: (string | null)[] | null
   coverImage?: RawImage | null
   startDate?: FuzzyDate | null
   endDate?: FuzzyDate | null
@@ -118,7 +119,17 @@ export function normalizeSummary(raw: RawMedia): MediaSummary {
       english: raw.title?.english ?? null,
       native: raw.title?.native ?? null,
     },
-    coverImage: raw.coverImage?.large ?? raw.coverImage?.extraLarge ?? null,
+    synonyms: compact(raw.synonyms),
+    // `extraLarge` first, always.
+    //
+    // Upstream's `large` is 230×345. The poster grid renders cells at 164px
+    // and the media page hero at ~280px, so on any 2× display — which is to
+    // say nearly all of them — `large` was being upscaled 1.4–2.4× and every
+    // cover in the product looked soft. `extraLarge` is 430×645 and covers
+    // every size the app actually draws, at 2×, with room to spare. The cost
+    // is a bigger image request, not a bigger GraphQL response: both URLs
+    // were already on the wire and the browser only fetches what renders.
+    coverImage: raw.coverImage?.extraLarge ?? raw.coverImage?.large ?? null,
     coverImageLarge: raw.coverImage?.extraLarge ?? raw.coverImage?.large ?? null,
     color: raw.coverImage?.color ?? null,
     bannerImage: raw.bannerImage ?? null,
@@ -127,6 +138,7 @@ export function normalizeSummary(raw: RawMedia): MediaSummary {
     chapters: raw.chapters ?? null,
     volumes: raw.volumes ?? null,
     averageScore: raw.averageScore ?? null,
+    popularity: raw.popularity ?? 0,
     genres: compact(raw.genres),
     isAdult: raw.isAdult ?? false,
     nextAiringEpisode: raw.nextAiringEpisode ?? null,
@@ -141,7 +153,6 @@ export function normalizeMedia(raw: RawMedia): Media {
     duration: raw.duration ?? null,
     source: raw.source ?? null,
     countryOfOrigin: raw.countryOfOrigin ?? null,
-    popularity: raw.popularity ?? 0,
     favorites: raw.favorites ?? 0,
     meanScore: raw.meanScore ?? null,
     siteUrl: raw.siteUrl ?? null,

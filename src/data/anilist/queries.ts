@@ -20,8 +20,16 @@ export const MEDIA_CARD_FRAGMENT = `
     volumes
     seasonYear
     averageScore
+    # Rides along on the card fragment because search ranking needs it as a
+    # tiebreaker — "one" has to put One Piece first — and refetching it
+    # separately would double the request count on every keystroke.
+    popularity
     bannerImage
     title { romaji english native }
+    # The alternate spellings a title is known by — "Attack on Titan" is filed
+    # under its romaji name, and "AoT" is a synonym. The local ranker matches
+    # against these too, which is most of why search stopped missing things.
+    synonyms
     coverImage { extraLarge large color }
     # Small enough to ride along on the 50-at-a-time library hydration, and it
     # is what lets the dashboard say 'episode 8 lands on Friday'.
@@ -37,7 +45,6 @@ export const MEDIA_FULL_FRAGMENT = `
     duration
     source(version: 3)
     countryOfOrigin
-    popularity
     # Aliased on the wire: the upstream schema spells this the British way and
     # the app spells everything the American way. Renaming it here is the one
     # place the two conventions have to meet, so nothing downstream — the raw
@@ -102,6 +109,11 @@ export const SEARCH_QUERY = `
     $genres: [String]
     $season: MediaSeason
     $seasonYear: Int
+    $yearFrom: FuzzyDateInt
+    $yearTo: FuzzyDateInt
+    $scoreFrom: Int
+    $scoreTo: Int
+    $statuses: [MediaStatus]
     $sort: [MediaSort]
     $page: Int = 1
     $perPage: Int = 24
@@ -116,6 +128,14 @@ export const SEARCH_QUERY = `
         genre_in: $genres
         season: $season
         seasonYear: $seasonYear
+        # Year is a *range* filter rather than a single season year, so
+        # "2010–2015" is one request. Upstream stores these as FuzzyDateInt —
+        # yyyymmdd packed into an integer — hence 20100101 / 20151231.
+        startDate_greater: $yearFrom
+        startDate_lesser: $yearTo
+        averageScore_greater: $scoreFrom
+        averageScore_lesser: $scoreTo
+        status_in: $statuses
         sort: $sort
         isAdult: $isAdult
       ) { ...MediaCard }

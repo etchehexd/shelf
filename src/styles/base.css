@@ -38,14 +38,18 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
-  /* Headings are confident, not dramatic: same family, more weight, tighter
-     tracking. No second typeface anywhere in the product. */
+  /* Headings speak in the display serif. This is the single largest change to
+     the product's character: the same layout, set in a face that has a hand
+     in it, stops reading as a dashboard and starts reading as something
+     somebody made. */
   h1,
   h2,
   h3,
   h4 {
+    font-family: var(--font-display);
+    font-variation-settings: var(--wonk-display);
     font-weight: 600;
-    letter-spacing: -0.022em;
+    letter-spacing: -0.016em;
     line-height: 1.15;
   }
 
@@ -97,6 +101,41 @@
 }
 
 @layer components {
+  /* --------------------------------------------------------------- display --
+     The four display sizes carry the serif wherever they are used, including
+     on the buttons and spans that are visually a headline without being an
+     `<h*>`. Declared here rather than on the size tokens because Tailwind's
+     `--text-*` keys accept line-height, tracking and weight but not family —
+     and one rule per size beats hand-applying `font-display` at 200 call
+     sites and missing eleven of them.
+
+     Lives in `components` on purpose: the `font-sans` / `font-mono`
+     utilities sit in a later layer, so anything that explicitly opts out
+     still wins. */
+  .text-display-xl {
+    font-family: var(--font-display);
+    font-variation-settings: var(--wonk-hero);
+  }
+
+  .text-display-lg,
+  .text-display-md {
+    font-family: var(--font-display);
+    font-variation-settings: var(--wonk-display);
+  }
+
+  .text-display-sm {
+    font-family: var(--font-display);
+    font-variation-settings: var(--wonk-title);
+  }
+
+  /* A media title in a card or a row: the serif at reading size, wonk off.
+     The alternates are charm at 4rem and noise at 0.97rem. */
+  .text-title {
+    font-family: var(--font-display);
+    font-variation-settings: var(--wonk-title);
+    font-weight: 580;
+  }
+
   /* ---------------------------------------------------------------- label --
      The catalog label. Mono, small, wide, uppercase, with a leading tick.
      It appears on every page and is the single most repeated brand mark in
@@ -374,15 +413,11 @@
     }
   }
 
-  /* The editorial variant: the first cell spans two columns and two rows, so
-     the wall of covers opens with one large piece instead of reading as a
-     uniform tile. */
-  @media (min-width: 640px) {
-    .poster-grid-lead > *:first-child {
-      grid-column: span 2;
-      grid-row: span 2;
-    }
-  }
+  /* No `.poster-grid-lead` any more.
+     Spanning the first cell across 2×2 asked a 430px poster to fill 370 CSS
+     pixels — 555 device pixels on a 1.5× display — so the page's focal image
+     was always its blurriest. A hero now uses landscape banner artwork, which
+     is wide enough to earn the size. See `Grid` in DiscoverPage. */
 
   /* --------------------------------------------------------------- scrim --
      The one gradient in the product: artwork → page, so type stays legible

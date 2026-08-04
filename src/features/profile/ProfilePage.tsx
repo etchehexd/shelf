@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Eye, EyeOff, GripVertical, Pencil, Share2 } from 'lucide-react'
+import { Eye, EyeOff, GripVertical, LogOut, Pencil, Share2 } from 'lucide-react'
 import {
   Avatar,
   BarRow,
@@ -69,7 +69,7 @@ import { compactNumber, duration, pluralize, scoreText } from '@/lib/format'
 export default function ProfilePage() {
   const profile = useLibrary((s) => s.profile)
   const setWidgets = useLibrary((s) => s.setWidgets)
-  const { session, enabled } = useAuth()
+  const { session, enabled, signOut } = useAuth()
 
   const [editingProfile, setEditingProfile] = useState(false)
   const [arranging, setArranging] = useState(false)
@@ -185,6 +185,14 @@ export default function ProfilePage() {
               <Button icon={<Pencil className="size-4" />} onClick={() => setEditingProfile(true)}>
                 Edit
               </Button>
+              {/* Signing out belongs on the page that is about who you are, not
+                  only behind the avatar menu. Local data survives it, so this is
+                  an ordinary action and not styled as a destructive one. */}
+              {session && (
+                <Button icon={<LogOut className="size-4" />} onClick={() => void signOut()}>
+                  Sign out
+                </Button>
+              )}
             </div>
           </div>
 

@@ -53,16 +53,35 @@
   --st-dropped: #98565a;
 
   /* ---- the community ramp -----------------------------------------------
-     Everyone else's score, in four bands. Deliberately cool — never ember —
-     because ember means "yours" everywhere in this product and the two
-     numbers must not be confusable at a glance from across the room.
-     `-ink` is the text that sits *on* the solid band, and each band is
-     tuned to clear 4.5:1 against it. */
-  --score-hi: #12704b;
-  --score-good: #1f6f83;
-  --score-fair: #4a5fa0;
-  --score-weak: #97474f;
-  --score-ink: #fbfaf8;
+     Everyone else's score, in seven bands on a 0–10 scale:
+
+       9.0–10   blue          8.0–8.9  deep green     7.0–7.9  leaf green
+       6.0–6.9  yellow        5.0–5.9  orange         3.0–4.9  red
+       0.0–2.9  deep purple
+
+     Seven steps rather than a gradient: binning means the same title is the
+     same color on every screen, so the color carries information instead of
+     decorating. The ramp is a real temperature scale — you can read "good"
+     and "bad" off it without having learned the product.
+
+     Each band carries its own ink because the ramp crosses from dark blues
+     and greens (which want white on them) to yellow and orange (which want
+     near-black). One shared `--score-ink` would fail 4.5:1 at both ends. */
+  --score-9: #2563c9; /* blue        — white ink, 5.4:1 */
+  --score-8: #12674a; /* deep green  — white ink, 7.2:1 */
+  --score-7: #3c8035; /* leaf green  — white ink, 4.6:1 */
+  --score-6: #b07d00; /* yellow      — dark ink,  5.9:1 */
+  --score-5: #cc6a12; /* orange      — dark ink,  4.6:1 */
+  --score-3: #c0392b; /* red         — white ink, 4.9:1 */
+  --score-0: #4a2a6b; /* deep purple — white ink, 9.6:1 */
+
+  --score-9-ink: #fbfaf8;
+  --score-8-ink: #fbfaf8;
+  --score-7-ink: #fbfaf8;
+  --score-6-ink: #1b1508;
+  --score-5-ink: #1e1206;
+  --score-3-ink: #fffaf9;
+  --score-0-ink: #f8f5fb;
 
   /* scrims over artwork */
   --scrim: 246 244 240;
@@ -83,6 +102,17 @@
   /* fallback until a page publishes its artwork accent */
   --art-accent: var(--accent);
   --art-accent-quiet: var(--accent-quiet);
+
+  /* Fraunces' character axes, named once so every display size agrees.
+     SOFT rounds the terminals; WONK swaps in the drawn alternates — the
+     splayed `g`, the curled `y`. They are the reason this face is here: they
+     are what make a heading look drawn rather than set, which is the thing a
+     grotesk UI font structurally cannot do no matter how it is tuned.
+     `opsz` is set per size: a high optical size is a tighter, more dramatic
+     cut, which a 4rem headline wants and a 1.25rem one does not. */
+  --wonk-hero: 'SOFT' 45, 'WONK' 1, 'opsz' 144;
+  --wonk-display: 'SOFT' 40, 'WONK' 1, 'opsz' 72;
+  --wonk-title: 'SOFT' 32, 'WONK' 0, 'opsz' 24;
 }
 
 [data-theme='dark'] {
@@ -115,12 +145,23 @@
   --st-dropped: #c08589;
 
   /* The dark bands are lifted and desaturated rather than simply brightened:
-     a saturated green chip on warm charcoal reads as a notification badge. */
-  --score-hi: #35b585;
-  --score-good: #3fabc4;
-  --score-fair: #8098e2;
-  --score-weak: #d97f87;
-  --score-ink: #10100f;
+     a saturated chip on warm charcoal reads as a notification badge. Every
+     band is light here, so every band takes near-black ink. */
+  --score-9: #5b9bf5;
+  --score-8: #2f9f6d;
+  --score-7: #6cb84f;
+  --score-6: #e0b23a;
+  --score-5: #ef8f42;
+  --score-3: #e2645a;
+  --score-0: #a077cf;
+
+  --score-9-ink: #0b1424;
+  --score-8-ink: #04160f;
+  --score-7-ink: #0b1706;
+  --score-6-ink: #1b1508;
+  --score-5-ink: #1e1206;
+  --score-3-ink: #200907;
+  --score-0-ink: #150b1f;
 
   --scrim: 19 17 16;
 
@@ -170,17 +211,43 @@
   --color-paused: var(--st-paused);
   --color-dropped: var(--st-dropped);
 
-  --color-score-hi: var(--score-hi);
-  --color-score-good: var(--score-good);
-  --color-score-fair: var(--score-fair);
-  --color-score-weak: var(--score-weak);
-  --color-score-ink: var(--score-ink);
+  --color-score-9: var(--score-9);
+  --color-score-8: var(--score-8);
+  --color-score-7: var(--score-7);
+  --color-score-6: var(--score-6);
+  --color-score-5: var(--score-5);
+  --color-score-3: var(--score-3);
+  --color-score-0: var(--score-0);
+
+  --color-score-9-ink: var(--score-9-ink);
+  --color-score-8-ink: var(--score-8-ink);
+  --color-score-7-ink: var(--score-7-ink);
+  --color-score-6-ink: var(--score-6-ink);
+  --color-score-5-ink: var(--score-5-ink);
+  --color-score-3-ink: var(--score-3-ink);
+  --color-score-0-ink: var(--score-0-ink);
 
   /* ---- type -------------------------------------------------------------
-     One sans for everything, one mono for the catalog voice. Hierarchy is
-     built from weight, size and tracking — never from a second personality. */
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+     Three voices, and the split is by *job*, not by size:
+
+       display  Fraunces — a warm old-style serif with optical-size, SOFT and
+                WONK axes. Anything you are meant to feel rather than read:
+                page headlines, media titles, the big numerals. Its wonk
+                alternates give the product an actual drawn character, which
+                is the thing a grotesk UI face structurally cannot have.
+       sans     Plus Jakarta Sans — geometric humanist, open apertures, a
+                friendlier `a`/`g` than the Inter/system default. Everything
+                you read: body copy, labels, controls.
+       mono     IBM Plex Mono — the catalog voice. Slab-ish, slightly
+                mechanical, and warm rather than sterile.
+
+     The pairing is the personality. Hierarchy no longer has to be carried by
+     weight and tracking alone, which is exactly why the old single-family
+     stack read as generic no matter how it was tuned. */
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+
 
   /* The catalog label: mono, small, wide, uppercase. Appears on every page. */
   --text-micro: 0.65625rem;
@@ -201,25 +268,28 @@
   --text-title--line-height: 1.35;
   --text-title--letter-spacing: -0.011em;
 
-  --text-display-sm: 1.1875rem;
-  --text-display-sm--line-height: 1.2;
-  --text-display-sm--letter-spacing: -0.021em;
+  /* Display sizes are set in the serif, so the tracking is looser than the old
+     grotesk scale wanted: a serif tightened to -0.034em collides its own
+     serifs and reads as a compression artifact rather than as confidence. */
+  --text-display-sm: 1.25rem;
+  --text-display-sm--line-height: 1.24;
+  --text-display-sm--letter-spacing: -0.012em;
   --text-display-sm--font-weight: 600;
 
-  --text-display-md: 1.625rem;
-  --text-display-md--line-height: 1.12;
-  --text-display-md--letter-spacing: -0.028em;
+  --text-display-md: 1.75rem;
+  --text-display-md--line-height: 1.14;
+  --text-display-md--letter-spacing: -0.016em;
   --text-display-md--font-weight: 600;
 
-  --text-display-lg: 2.375rem;
-  --text-display-lg--line-height: 1.04;
-  --text-display-lg--letter-spacing: -0.034em;
-  --text-display-lg--font-weight: 620;
+  --text-display-lg: 2.625rem;
+  --text-display-lg--line-height: 1.06;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 600;
 
-  --text-display-xl: 3.5rem;
-  --text-display-xl--line-height: 0.98;
-  --text-display-xl--letter-spacing: -0.04em;
-  --text-display-xl--font-weight: 640;
+  --text-display-xl: 4rem;
+  --text-display-xl--line-height: 0.96;
+  --text-display-xl--letter-spacing: -0.024em;
+  --text-display-xl--font-weight: 600;
 
   /* ---- radius -----------------------------------------------------------
      Deliberate variety. Artwork is nearly square-cornered so it reads as a

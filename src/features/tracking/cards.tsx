@@ -63,7 +63,7 @@ function CornerTab({
  * Two numbers live on every poster in this product, and they occupy fixed,
  * opposite positions so that scanning a shelf never requires reading a label:
  *
- *   TOP-LEFT     everyone's score  — solid color block, out of 100
+ *   TOP-LEFT     everyone's score  — solid band-colored chip, X.X/10
  *   BOTTOM-LEFT  your score        — ember stars on a frosted plate, out of 5
  *   TOP-RIGHT    your rank         — ember tab, when a ranked view asks for it
  *

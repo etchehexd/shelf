@@ -361,10 +361,13 @@ export function RankDialog({
                     {i + 1}
                   </span>
                   <RankRowTitle mediaId={id} highlight={id === media.id} />
+                  {/* Stars, not the numeral. A bare grey number here is the
+                      one place your score was still drawn like everyone
+                      else's, and two scoring languages in one product is
+                      exactly the confusion the star treatment exists to
+                      prevent. */}
                   {entries[id]?.score != null && (
-                    <span className="font-mono-num ml-auto text-meta text-ink-3">
-                      {entries[id].score}
-                    </span>
+                    <Rating value={entries[id].score} size="xs" className="ml-auto shrink-0" />
                   )}
                 </li>
               ))}

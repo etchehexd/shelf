@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
-import { Compass } from 'lucide-react'
+import { Compass, SearchX } from 'lucide-react'
 import {
   Chip,
   CoverSkeleton,
@@ -11,7 +11,16 @@ import {
   Section,
   SectionHeader,
 } from '@/design'
-import { useMediaMap, useMediaSearch, useRecommendations } from '@/data/anilist/hooks'
+import {
+  hasFilters,
+  useMediaMap,
+  useMediaSearch,
+  useRecommendations,
+  useTitleSearch,
+  type MediaFilters,
+} from '@/data/anilist/hooks'
+import type { SortKey } from '@/data/anilist/queries'
+import { FilterBar } from './FilterBar'
 import { displayTitle } from '@/data/anilist/normalize'
 import { KIND_LABEL, type MediaKind, type MediaSummary } from '@/data/anilist/types'
 import { usePrefs } from '@/data/store/prefs'
@@ -24,6 +33,48 @@ const SEASONS = ['WINTER', 'SPRING', 'SUMMER', 'FALL'] as const
 function currentSeason(): { season: (typeof SEASONS)[number]; year: number } {
   const now = new Date()
   return { season: SEASONS[Math.floor(now.getMonth() / 3)], year: now.getFullYear() }
+}
+
+/* ---------------------------------------------------------- filters in the URL --
+ *
+ * Filters live in the query string rather than in component state so that a
+ * narrowed view is a real place: it survives a reload, it can be sent to
+ * somebody, and the back button walks out of it one constraint at a time.
+ * Repeated keys carry the multi-selects, which keeps the encoding readable —
+ * ?genre=Action&genre=Comedy — instead of inventing a delimiter that then has
+ * to be escaped out of genre names.
+ */
+
+function filtersFromParams(params: URLSearchParams): MediaFilters {
+  const num = (key: string): number | undefined => {
+    const raw = params.get(key)
+    if (raw == null) return undefined
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  return {
+    genres: params.getAll('genre'),
+    formats: params.getAll('format'),
+    statuses: params.getAll('status'),
+    yearFrom: num('from'),
+    yearTo: num('to'),
+    scoreFrom: num('min'),
+  }
+}
+
+function paramsWithFilters(params: URLSearchParams, filters: MediaFilters): URLSearchParams {
+  const next = new URLSearchParams(params)
+  for (const key of ['genre', 'format', 'status', 'from', 'to', 'min']) next.delete(key)
+
+  for (const g of filters.genres ?? []) next.append('genre', g)
+  for (const f of filters.formats ?? []) next.append('format', f)
+  for (const s of filters.statuses ?? []) next.append('status', s)
+  if (filters.yearFrom != null) next.set('from', String(filters.yearFrom))
+  if (filters.yearTo != null) next.set('to', String(filters.yearTo))
+  if (filters.scoreFrom != null) next.set('min', String(filters.scoreFrom))
+
+  return next
 }
 
 /**
@@ -40,7 +91,15 @@ export default function DiscoverPage() {
   const [params, setParams] = useSearchParams()
   const query = params.get('q') ?? ''
   const kind = (params.get('kind') as MediaKind) || 'anime'
-  const genreFilter = params.get('genre')
+  const sort = (params.get('sort') as SortKey) || 'trending'
+
+  const filters = useMemo(() => filtersFromParams(params), [params])
+  const filtering = hasFilters(filters)
+
+  const setFilters = useCallback(
+    (next: MediaFilters) => setParams(paramsWithFilters(params, next), { replace: true }),
+    [params, setParams],
+  )
 
   const [draft, setDraft] = useState(query)
   const language = usePrefs((s) => s.titleLanguage)
@@ -99,7 +158,9 @@ export default function DiscoverPage() {
             onChange={(next) => {
               const merged = new URLSearchParams(params)
               merged.set('kind', next)
-              merged.delete('genre')
+              // Formats are per-kind enums, so carrying them across would ask
+              // upstream for TV manga. Everything else survives the switch.
+              merged.delete('format')
               setParams(merged, { replace: true })
             }}
             segments={(['anime', 'manga', 'novel'] as MediaKind[]).map((k) => ({
@@ -109,36 +170,57 @@ export default function DiscoverPage() {
           />
         </div>
 
+        <FilterBar
+          kind={kind}
+          filters={filters}
+          onChange={setFilters}
+          showSort={!searching}
+          sort={sort}
+          onSortChange={(next) => {
+            const merged = new URLSearchParams(params)
+            merged.set('sort', next)
+            setParams(merged, { replace: true })
+          }}
+        />
+
+        {/* Your own strongest genres, one tap away. These sit below the
+            general controls because they are a shortcut into them, not a
+            second filtering system. */}
         {affinity.length > 0 && !searching && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="label-cat mr-1">Genres</span>
-            {affinity.map((g) => (
-              <Chip
-                key={g.genre}
-                active={genreFilter === g.genre}
-                onClick={() => {
-                  const merged = new URLSearchParams(params)
-                  if (genreFilter === g.genre) merged.delete('genre')
-                  else merged.set('genre', g.genre)
-                  setParams(merged, { replace: true })
-                }}
-              >
-                {g.genre}
-                {g.averageScore != null && (
-                  <span className="font-mono-num ml-1.5 opacity-60">
-                    {scoreText(g.averageScore)}
-                  </span>
-                )}
-              </Chip>
-            ))}
+            <span className="label-cat mr-1">Your genres</span>
+            {affinity.map((g) => {
+              const on = (filters.genres ?? []).includes(g.genre)
+              return (
+                <Chip
+                  key={g.genre}
+                  active={on}
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      genres: on
+                        ? (filters.genres ?? []).filter((x) => x !== g.genre)
+                        : [...(filters.genres ?? []), g.genre],
+                    })
+                  }
+                >
+                  {g.genre}
+                  {g.averageScore != null && (
+                    <span className="font-mono-num ml-1.5 opacity-60">
+                      {scoreText(g.averageScore)}
+                    </span>
+                  )}
+                </Chip>
+              )
+            })}
           </div>
         )}
       </header>
 
       {searching ? (
-        <SearchResults query={query} kind={kind} />
-      ) : genreFilter ? (
-        <GenreShelf genre={genreFilter} kind={kind} />
+        <SearchResults query={query} kind={kind} filters={filters} />
+      ) : filtering ? (
+        <FilteredResults kind={kind} filters={filters} sort={sort} />
       ) : !hasTaste ? (
         <EmptyState
           icon={<Compass className="size-6" strokeWidth={1.5} />}
@@ -193,33 +275,99 @@ export default function DiscoverPage() {
 
 /* -------------------------------------------------------------------------- */
 
-function SearchResults({ query, kind }: { query: string; kind: MediaKind }) {
-  const { data, isLoading } = useMediaSearch({ search: query, kind, perPage: 30 })
+/**
+ * Search results, ordered here rather than upstream.
+ *
+ * `useTitleSearch` asks for several spellings of the query at once and ranks
+ * the merged pool locally against every name a title carries, which is what
+ * makes "rezero", "re zero" and "Re:Zero" one search and what puts One Piece
+ * at the top of "one".
+ */
+function SearchResults({
+  query,
+  kind,
+  filters,
+}: {
+  query: string
+  kind: MediaKind
+  filters: MediaFilters
+}) {
+  const { media, isLoading } = useTitleSearch({ query, kind, filters })
 
-  if (isLoading) return <GridSkeleton />
+  if (isLoading && media.length === 0) return <GridSkeleton />
 
-  if (!data || data.media.length === 0) {
-    return <EmptyState title={`Nothing found for “${query}”`} />
+  if (media.length === 0) {
+    return (
+      <EmptyState
+        icon={<SearchX className="size-6" strokeWidth={1.5} />}
+        title={`Nothing found for “${query}”`}
+        description={
+          hasFilters(filters)
+            ? 'The filters above may be narrowing this to nothing — try clearing them.'
+            : 'Try fewer words, or the title as it is spelled on the cover.'
+        }
+      />
+    )
   }
 
   return (
     <Section>
       <SectionHeader
         title={`“${query}”`}
-        action={<span className="label-cat label-cat-plain">{data.total} results</span>}
+        action={
+          <span className="label-cat label-cat-plain">
+            {media.length} {media.length === 1 ? 'result' : 'results'}
+          </span>
+        }
       />
-      <Grid media={data.media} />
+      <Grid media={media} />
     </Section>
   )
 }
 
-function GenreShelf({ genre, kind }: { genre: string; kind: MediaKind }) {
-  const { data, isLoading } = useMediaSearch({ genres: [genre], kind, sort: 'score', perPage: 30 })
+/** Browsing with the filter bar set and no text query. */
+function FilteredResults({
+  kind,
+  filters,
+  sort,
+}: {
+  kind: MediaKind
+  filters: MediaFilters
+  sort: SortKey
+}) {
+  const { data, isLoading } = useMediaSearch({ kind, sort, perPage: 40, ...filters })
+  const media = data?.media ?? []
+
+  const title = [
+    (filters.genres ?? []).join(' + '),
+    filters.scoreFrom != null ? `${filters.scoreFrom.toFixed(1)}+` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <Section>
-      <SectionHeader title={genre} />
-      {isLoading ? <GridSkeleton /> : <Grid media={data?.media ?? []} />}
+      <SectionHeader
+        title={title || 'Filtered'}
+        action={
+          !isLoading ? (
+            <span className="label-cat label-cat-plain">
+              {data?.total ?? media.length} matching
+            </span>
+          ) : undefined
+        }
+      />
+      {isLoading ? (
+        <GridSkeleton />
+      ) : media.length === 0 ? (
+        <EmptyState
+          icon={<SearchX className="size-6" strokeWidth={1.5} />}
+          title="Nothing matches all of those"
+          description="Loosen one of the filters above and the shelf fills back up."
+        />
+      ) : (
+        <Grid media={media} />
+      )}
     </Section>
   )
 }
@@ -463,13 +611,45 @@ function MediaRail({ media }: { media: MediaSummary[] }) {
   )
 }
 
-/** The first cell spans two columns, so a wall of results opens with a hero. */
+/**
+ * A wall of results that opens with a hero.
+ *
+ * The lead used to be the same poster as everything else, spanning two grid
+ * cells. That was wrong twice over. Visually it made the page one shape at two
+ * sizes, which is the definition of a boxy grid. And technically it rendered a
+ * 430px-wide cover at 370 CSS pixels — 555 device pixels on a normal laptop —
+ * so the one image the eye landed on first was the softest thing on the page.
+ * There is no larger poster upstream; the fix is to stop asking a poster to be
+ * a billboard.
+ *
+ * `FeatureCard` uses the landscape banner instead, which is 1900px wide and
+ * therefore genuinely sharp at hero scale, and keeps the poster at its native
+ * size in front of it. Different shape, different artwork, correct resolution —
+ * one change that answers the rhythm problem and the sharpness problem.
+ */
 function Grid({ media }: { media: MediaSummary[] }) {
+  const [lead, ...rest] = media
+
+  // Below five results a hero is just a big first row — there is no wall for
+  // it to lead, and the page reads as though the search half-failed.
+  if (!lead || media.length < 5) {
+    return (
+      <div className="poster-grid">
+        {media.map((m, i) => (
+          <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="poster-grid poster-grid-lead">
-      {media.map((m, i) => (
-        <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
-      ))}
+    <div className="space-y-9">
+      <FeatureCard media={lead} eyebrow="Best match" layered={rest.slice(0, 3)} />
+      <div className="poster-grid grid-stagger">
+        {rest.map((m, i) => (
+          <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
+        ))}
+      </div>
     </div>
   )
 }

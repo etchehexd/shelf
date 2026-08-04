@@ -14,6 +14,8 @@ export {
   CommunityScore,
   ratingWord,
   scoreBand,
+  communityOutOfTen,
+  communityText,
   RATING_MAX,
   RATING_WORD,
   SCORE_BAND_WORD,

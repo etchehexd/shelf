@@ -196,8 +196,8 @@ function Hero({ media }: { media: Media }) {
           </p>
         )}
 
-        {/* The two numbers, side by side and impossible to confuse: a neutral
-            ring out of 100 for everyone else, ember stars out of 10 for you. */}
+        {/* The two numbers, side by side and impossible to confuse: a colored
+            gauge reading X.X/10 for everyone else, ember stars for you. */}
         <div className="mt-7 flex flex-wrap items-stretch gap-x-8 gap-y-5">
           {media.averageScore != null && (
             <div className="flex items-center gap-3 pr-8 sm:border-r sm:border-line">

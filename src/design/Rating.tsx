@@ -395,54 +395,95 @@ export function RatingInput({
 /* ------------------------------------------------------- community score -- */
 
 /**
- * The four bands.
+ * The seven bands.
  *
- * A percentage is not a color, but *how good* something is has four honest
- * steps and people already read them: acclaimed, strong, mixed, poor. Binning
- * rather than interpolating means the same title is the same color on every
- * screen, and it means the color carries information instead of decorating.
+ * `how good is this` has more than four honest steps, and a real temperature
+ * ramp — blue at the top, through greens and yellow, into orange, red and a
+ * dead purple at the bottom — can be read without having learned the product.
+ * Binning rather than interpolating means the same title is the same color on
+ * every screen, so the color carries information instead of decorating.
+ *
+ * Band ids are the floor of the band on the 0–10 scale, which makes the table
+ * below check itself against the spec at a glance.
  */
-export type ScoreBand = 'hi' | 'good' | 'fair' | 'weak'
+export type ScoreBand = '9' | '8' | '7' | '6' | '5' | '3' | '0'
 
-export function scoreBand(pct: number): ScoreBand {
-  if (pct >= 80) return 'hi'
-  if (pct >= 68) return 'good'
-  if (pct >= 55) return 'fair'
-  return 'weak'
+/** Takes the score on the 0–10 scale, already rounded to the printed digit. */
+export function scoreBand(outOfTen: number): ScoreBand {
+  if (outOfTen >= 9) return '9'
+  if (outOfTen >= 8) return '8'
+  if (outOfTen >= 7) return '7'
+  if (outOfTen >= 6) return '6'
+  if (outOfTen >= 5) return '5'
+  if (outOfTen >= 3) return '3'
+  return '0'
 }
 
 export const SCORE_BAND_WORD: Record<ScoreBand, string> = {
-  hi: 'Acclaimed',
-  good: 'Well liked',
-  fair: 'Mixed',
-  weak: 'Poorly received',
+  '9': 'Acclaimed',
+  '8': 'Excellent',
+  '7': 'Well liked',
+  '6': 'Solid',
+  '5': 'Mixed',
+  '3': 'Poorly received',
+  '0': 'Panned',
 }
 
-/** Solid fill / tinted wash / text, per band. Kept together so a new surface
- *  can't invent a fifth combination. */
+/**
+ * Solid fill / tinted wash / text, per band.
+ *
+ * Kept in three parallel tables rather than composed at the call site so a new
+ * surface cannot invent an eighth combination. Each solid pairs with its own
+ * ink because the ramp crosses from dark blue to yellow: one shared ink fails
+ * contrast at one end or the other.
+ */
 const BAND_SOLID: Record<ScoreBand, string> = {
-  hi: 'bg-score-hi text-score-ink',
-  good: 'bg-score-good text-score-ink',
-  fair: 'bg-score-fair text-score-ink',
-  weak: 'bg-score-weak text-score-ink',
+  '9': 'bg-score-9 text-score-9-ink',
+  '8': 'bg-score-8 text-score-8-ink',
+  '7': 'bg-score-7 text-score-7-ink',
+  '6': 'bg-score-6 text-score-6-ink',
+  '5': 'bg-score-5 text-score-5-ink',
+  '3': 'bg-score-3 text-score-3-ink',
+  '0': 'bg-score-0 text-score-0-ink',
 }
 
 const BAND_TEXT: Record<ScoreBand, string> = {
-  hi: 'text-score-hi',
-  good: 'text-score-good',
-  fair: 'text-score-fair',
-  weak: 'text-score-weak',
+  '9': 'text-score-9',
+  '8': 'text-score-8',
+  '7': 'text-score-7',
+  '6': 'text-score-6',
+  '5': 'text-score-5',
+  '3': 'text-score-3',
+  '0': 'text-score-0',
 }
 
 const BAND_WASH: Record<ScoreBand, string> = {
-  hi: 'bg-score-hi/12 text-score-hi',
-  good: 'bg-score-good/12 text-score-good',
-  fair: 'bg-score-fair/12 text-score-fair',
-  weak: 'bg-score-weak/12 text-score-weak',
+  '9': 'bg-score-9/12 text-score-9',
+  '8': 'bg-score-8/12 text-score-8',
+  '7': 'bg-score-7/12 text-score-7',
+  '6': 'bg-score-6/14 text-score-6',
+  '5': 'bg-score-5/14 text-score-5',
+  '3': 'bg-score-3/12 text-score-3',
+  '0': 'bg-score-0/12 text-score-0',
+}
+
+/**
+ * Upstream reports the community average out of 100. The product speaks in
+ * tenths and never shows /100, so the conversion happens exactly here — at the
+ * one component that draws the number — rather than at forty call sites that
+ * would each get to round it slightly differently.
+ */
+export function communityOutOfTen(pct: number): number {
+  return Math.round(Math.max(0, Math.min(100, pct))) / 10
+}
+
+/** "8.7" — always one decimal, so a shelf of chips is a straight column. */
+export function communityText(pct: number): string {
+  return communityOutOfTen(pct).toFixed(1)
 }
 
 export interface CommunityScoreProps {
-  /** The community average, 0–100. */
+  /** The community average as upstream reports it, 0–100. Drawn out of 10. */
   value: number | null | undefined
   /**
    * badge  — solid color block. Sits on artwork, on every poster in the app.
@@ -455,16 +496,16 @@ export interface CommunityScoreProps {
 }
 
 /**
- * Everyone else's number.
+ * Everyone else's number: X.X/10, in a solid block of band color.
  *
- * A solid block of color out of 100 — never stars, never ember, never gray.
- * It used to be a neutral ring that dissolved into whatever cover it sat on;
- * the point of a community score is to be legible in the half-second you spend
- * scanning a shelf, and a hairline ring in `--ink-2` simply is not.
+ * Never stars, never ember, never gray — the two scores in this product must
+ * be distinguishable at a glance from across the room, so they differ in
+ * shape, color, scale *and* position. Yours is five ember stars at the bottom
+ * left of a poster; everyone's is a colored numeric chip at the top left.
  *
- * The four bands do the work: on a wall of covers you read the color first and
- * the digits second, so a shelf's quality has a shape before you've read a
- * single number.
+ * The band color does the scanning work: on a wall of covers you read the
+ * color first and the digits second, so a shelf's quality has a shape before
+ * you have read a single number.
  */
 export function CommunityScore({
   value,
@@ -474,28 +515,35 @@ export function CommunityScore({
 }: CommunityScoreProps) {
   if (value == null) return null
 
-  const pct = Math.max(0, Math.min(100, Math.round(value)))
-  const band = scoreBand(pct)
-  const label = `Community score ${pct} out of 100 — ${SCORE_BAND_WORD[band].toLowerCase()}`
+  const outOfTen = communityOutOfTen(value)
+  // Band off the *printed* digit, so a 8.96 that prints "9.0" is blue rather
+  // than green. A chip whose color disagrees with its own number is a bug you
+  // can see from the other side of the room.
+  const band = scoreBand(outOfTen)
+  const text = outOfTen.toFixed(1)
+  const label = `Community score ${text} out of 10 — ${SCORE_BAND_WORD[band].toLowerCase()}`
 
   if (variant === 'badge') {
     return (
       <span
         className={cn(
-          'font-mono-num inline-flex items-center justify-center rounded-[5px] font-bold tabular-nums',
+          'font-mono-num inline-flex items-baseline justify-center rounded-[5px] font-bold tabular-nums',
           // The inset hairline is what stops a pale band dissolving into a
           // pale cover — a solid chip on artwork needs its own edge.
-          'shadow-[0_1px_3px_rgb(0_0_0/0.35),inset_0_0_0_1px_rgb(255_255_255/0.16)]',
-          size === 'sm'
-            ? 'min-w-[1.55rem] px-1 py-[0.1rem] text-[0.625rem]'
-            : 'min-w-[1.85rem] px-1.5 py-0.5 text-[0.6875rem]',
+          'shadow-[0_1px_3px_rgb(0_0_0/0.35),inset_0_0_0_1px_rgb(255_255_255/0.18)]',
+          size === 'sm' ? 'px-1 py-[0.1rem] text-[0.6875rem]' : 'px-1.5 py-0.5 text-[0.78rem]',
           BAND_SOLID[band],
           className,
         )}
         title={label}
         aria-label={label}
       >
-        {pct}
+        {text}
+        {/* Half-opacity rather than a second color: the denominator is
+            context, not data, and it must never out-shout the digits. */}
+        <span className={size === 'sm' ? 'text-[0.5rem] opacity-70' : 'text-[0.5625rem] opacity-70'}>
+          /10
+        </span>
       </span>
     )
   }
@@ -503,11 +551,13 @@ export function CommunityScore({
   if (variant === 'hero') {
     return (
       <span className={cn('inline-flex items-center gap-3.5', className)} aria-label={label}>
-        <ScoreArc pct={pct} band={band} />
+        <ScoreArc outOfTen={outOfTen} band={band} />
         <span className="flex flex-col">
-          <span className="font-mono-num flex items-baseline leading-none font-semibold">
-            <span className={cn('text-display-md', BAND_TEXT[band])}>{pct}</span>
-            <span className="text-title text-ink-3">/100</span>
+          <span className="flex items-baseline leading-none font-semibold">
+            <span className={cn('font-mono-num text-display-md tabular-nums', BAND_TEXT[band])}>
+              {text}
+            </span>
+            <span className="font-mono-num text-title text-ink-3">/10</span>
           </span>
           <span className="label-cat label-cat-plain mt-1.5">
             Community · {SCORE_BAND_WORD[band]}
@@ -520,25 +570,26 @@ export function CommunityScore({
   return (
     <span
       className={cn(
-        'font-mono-num inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-semibold tabular-nums',
-        size === 'sm' ? 'text-[0.625rem]' : 'text-meta',
+        'font-mono-num inline-flex items-baseline gap-1 rounded-full px-2 py-0.5 font-semibold tabular-nums',
+        size === 'sm' ? 'text-[0.6875rem]' : 'text-meta',
         BAND_WASH[band],
         className,
       )}
       title={label}
       aria-label={label}
     >
-      <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
-      {pct}
+      <span className="size-1.5 shrink-0 self-center rounded-full bg-current" aria-hidden />
+      {text}
+      <span className="text-[0.85em] opacity-65">/10</span>
     </span>
   )
 }
 
 /**
  * The hero arc: 270° rather than a full circle, so the gap reads as a gauge
- * and the number inside it is unmistakably a measurement rather than a badge.
+ * and the number beside it is unmistakably a measurement rather than a badge.
  */
-function ScoreArc({ pct, band }: { pct: number; band: ScoreBand }) {
+function ScoreArc({ outOfTen, band }: { outOfTen: number; band: ScoreBand }) {
   const r = 15
   const sweep = 0.75 * 2 * Math.PI * r
   const gap = 2 * Math.PI * r - sweep
@@ -564,7 +615,7 @@ function ScoreArc({ pct, band }: { pct: number; band: ScoreBand }) {
         stroke="currentColor"
         strokeWidth="3.5"
         strokeLinecap="round"
-        strokeDasharray={`${(pct / 100) * sweep} ${2 * Math.PI * r}`}
+        strokeDasharray={`${(outOfTen / 10) * sweep} ${2 * Math.PI * r}`}
         className={cn(
           BAND_TEXT[band],
           'transition-[stroke-dasharray] duration-[900ms] ease-[var(--ease-out-expo)]',

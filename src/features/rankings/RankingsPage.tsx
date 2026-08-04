@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import {
   DndContext,
@@ -41,8 +41,9 @@ import { useEntriesOfKind, useRankedIds } from '@/data/store/selectors'
 import { useAuth } from '@/data/supabase/auth'
 import { SignInWall } from '@/features/auth/SignInWall'
 import type { LibraryEntry } from '@/data/store/types'
+import { PlacementDuel } from './PlacementDuel'
 import { cn } from '@/lib/cn'
-import { ordinal, pluralize } from '@/lib/format'
+import { pluralize } from '@/lib/format'
 
 /**
  * Rankings — its own room.
@@ -71,6 +72,18 @@ export default function RankingsPage() {
   const moveRank = useLibrary((s) => s.moveRank)
 
   const [adding, setAdding] = useState(false)
+  const [dueling, setDueling] = useState<MediaSummary | null>(null)
+
+  /**
+   * `?place=<id>` opens the duel directly.
+   *
+   * That is the handoff from finishing a title anywhere else in the app: the
+   * completion toast links here rather than trying to mount a dialog from a
+   * poster's context menu, so one route owns the flow and the deep link is
+   * shareable, refreshable and back-button-safe. The parameter is consumed on
+   * arrival so a refresh does not re-open a duel the user already answered.
+   */
+  const placeId = Number(params.get('place')) || null
 
   // One request covers the ranked list and the picker behind it.
   const allIds = useMemo(
@@ -80,6 +93,20 @@ export default function RankingsPage() {
   const { map } = useMediaMap(allIds)
 
   const byId = useMemo(() => new Map(entries.map((e) => [e.mediaId, e])), [entries])
+
+  useEffect(() => {
+    if (placeId == null) return
+    const media = map.get(placeId)
+    // Wait for the artwork batch — a duel with two blank frames is worse than
+    // a beat of delay, and the effect re-runs the moment the map fills in.
+    if (!media) return
+
+    setDueling(media)
+    const merged = new URLSearchParams(params)
+    merged.delete('place')
+    setParams(merged, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeId, map])
 
   const sensors = useSensors(
     // Enough travel that a click on a row still opens the title.
@@ -232,13 +259,26 @@ export default function RankingsPage() {
       )}
 
       <RankPicker
-        kind={kind}
         open={adding}
         onClose={() => setAdding(false)}
+        onPick={(media) => {
+          setAdding(false)
+          setDueling(media)
+        }}
         entries={entries}
         map={map}
         rankedIds={rankedIds}
       />
+
+      {dueling && (
+        <PlacementDuel
+          challenger={dueling}
+          kind={kind}
+          open
+          onClose={() => setDueling(null)}
+          resolve={(id) => map.get(id)}
+        />
+      )}
     </div>
   )
 }
@@ -436,22 +476,22 @@ function RankRow({
  * is the fastest route to that memory.
  */
 function RankPicker({
-  kind,
   open,
   onClose,
+  onPick,
   entries,
   map,
   rankedIds,
 }: {
-  kind: MediaKind
   open: boolean
   onClose: () => void
+  /** Hands the chosen title to the duel rather than dropping it at the bottom. */
+  onPick: (media: MediaSummary) => void
   entries: LibraryEntry[]
   map: Map<number, MediaSummary>
   rankedIds: number[]
 }) {
   const language = usePrefs((s) => s.titleLanguage)
-  const moveRank = useLibrary((s) => s.moveRank)
   const [query, setQuery] = useState('')
 
   const ranked = useMemo(() => new Set(rankedIds), [rankedIds])
@@ -469,21 +509,16 @@ function RankPicker({
       .sort((a, b) => displayTitle(a, language).localeCompare(displayTitle(b, language)))
   }, [entries, map, query, language])
 
-  const addToEnd = (media: MediaSummary) => {
-    moveRank(kind, media.id, rankedIds.length)
-    toast({ message: `${displayTitle(media, language)} ranked ${ordinal(rankedIds.length + 1)}` })
-  }
-
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title="Rank a title"
-      description="Anything you add lands at the bottom. Drag it where it belongs."
+      description="Pick one and you'll be asked a few head-to-heads to find its place."
       size="lg"
       footer={
-        <Button variant="primary" size="sm" onClick={onClose}>
-          Done
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
         </Button>
       }
     >
@@ -509,20 +544,22 @@ function RankPicker({
               <button
                 key={media.id}
                 type="button"
-                disabled={already}
-                onClick={() => addToEnd(media)}
-                title={displayTitle(media, language)}
-                className={cn(
-                  'group relative rounded-[4px] text-left transition-transform duration-200',
-                  already ? 'cursor-default opacity-35' : 'hover:-translate-y-1',
-                )}
+                /* Already-ranked titles stay clickable. Re-placing something is
+                   the same question as placing it — "where does this go now" —
+                   and locking the tile meant the only way to move a title from
+                   40th to 3rd was to drag it past thirty-seven rows. */
+                onClick={() => onPick(media)}
+                title={
+                  already
+                    ? `${displayTitle(media, language)} — already ranked, place it again`
+                    : displayTitle(media, language)
+                }
+                className="group relative rounded-[4px] text-left transition-transform duration-200 hover:-translate-y-1"
               >
                 <CoverImage src={media.coverImage} alt="" color={media.color}>
                   {already && (
-                    <span className="absolute inset-0 flex items-center justify-center bg-canvas/60">
-                      <span className="flex size-7 items-center justify-center rounded-full bg-surface-3 text-ink-3">
-                        <Check className="size-4" strokeWidth={3} />
-                      </span>
+                    <span className="absolute top-1 left-1 flex size-5 items-center justify-center rounded-full bg-accent text-accent-ink shadow-sm">
+                      <Check className="size-3" strokeWidth={3} aria-hidden />
                     </span>
                   )}
                 </CoverImage>

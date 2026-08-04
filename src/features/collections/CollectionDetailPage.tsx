@@ -386,27 +386,53 @@ function ExhibitionHeader({
   return (
     <header className="bleed-x -mt-6 overflow-hidden">
       <div className="relative">
-        <div className="absolute inset-0 flex" aria-hidden>
-          {covers.map((m, i) => (
-            <div key={m.id} className="h-full flex-1 overflow-hidden">
-              {m.coverImage && (
-                <img
-                  src={m.coverImage}
-                  alt=""
-                  className="size-full object-cover"
-                  style={{ opacity: 1 - i * 0.05 }}
-                />
-              )}
-            </div>
-          ))}
+        {/* The room's light.
+            This used to be eight covers stretched edge to edge behind a scrim —
+            a flat band of cropped rectangles that read as a broken image strip
+            and, at that aspect ratio, was visibly soft. A blurred wash of the
+            first piece does the actual job the strip was there for (take the
+            page's color from the work) at zero legibility cost, and the fan
+            below shows the covers *sharp*, at a size the artwork can support. */}
+        <div className="absolute inset-0" aria-hidden>
+          {covers[0]?.coverImage && (
+            <img src={covers[0].coverImage} alt="" className="art-wash size-full object-cover" />
+          )}
           <div
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(to bottom, rgb(var(--scrim) / 0.7) 0%, rgb(var(--scrim) / 0.9) 55%, rgb(var(--scrim) / 1) 100%)',
+                'linear-gradient(to bottom, rgb(var(--scrim) / 0.62) 0%, rgb(var(--scrim) / 0.88) 55%, rgb(var(--scrim) / 1) 100%)',
             }}
           />
         </div>
+
+        {/* The fan: the first few pieces, overlapping, leaning off the right
+            edge. Deliberately clipped by the header — a wall of art continues
+            past the frame, and a row that stops politely inside the margin
+            reads as a widget. */}
+        {covers.length > 1 && (
+          <div
+            className="pointer-events-none absolute top-1/2 -right-12 hidden -translate-y-1/2 lg:block"
+            aria-hidden
+          >
+            <div className="overlap-row" style={{ '--overlap': '-3.25rem' } as React.CSSProperties}>
+              {covers.slice(0, 5).map((m, i) => (
+                <span
+                  key={m.id}
+                  className="frame block w-28 shrink-0"
+                  style={{
+                    transform: `rotate(${(i - 2) * 2.5}deg) translateY(${Math.abs(i - 2) * 7}px)`,
+                    opacity: 0.92 - Math.abs(i - 2) * 0.12,
+                  }}
+                >
+                  {m.coverImage && (
+                    <img src={m.coverImage} alt="" className="aspect-[2/3] size-full object-cover" />
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="relative mx-auto w-full max-w-(--container-page) px-5 pt-6 pb-9 md:px-10 md:pb-12">
           <Link
