@@ -71,16 +71,31 @@ export function airingDayShort(airingAt: number): string {
 }
 
 /**
- * "in 3d 4h" / "in 5h 20m" / "in 12m" / "airing now" — for a countdown that is
- * re-read rather than watched.
+ * "in 3d 4h" / "in 5h 20m" / "in 12m" / "aired 2d ago" — for a countdown that
+ * is re-read rather than watched.
  *
  * Two units, never three: "in 3d 4h 12m" is a stopwatch, and nobody waiting
  * three days for an episode is counting its minutes. The last hour is the one
  * exception worth having, so under an hour it drops to minutes alone.
+ *
+ * Times in the past are the case that matters most and the one that was wrong:
+ * this used to answer "airing now" for anything at or before the present
+ * moment, which for an episode that went out on Monday is a lie the calendar
+ * then repeated all week. A broadcast is a moment, not a state — five minutes
+ * either side of it is "now", and everything before that has aired.
  */
 export function countdown(airingAt: number, now = Date.now()): string {
   const secs = airingAt - Math.floor(now / 1000)
-  if (secs <= 0) return 'airing now'
+
+  if (secs <= 0) {
+    const past = -secs
+    if (past < 300) return 'airing now'
+    const d = Math.floor(past / 86_400)
+    const h = Math.floor(past / 3_600)
+    if (d > 0) return `aired ${d}d ago`
+    if (h > 0) return `aired ${h}h ago`
+    return `aired ${Math.max(1, Math.floor(past / 60))}m ago`
+  }
 
   const d = Math.floor(secs / 86_400)
   const h = Math.floor((secs % 86_400) / 3_600)
@@ -89,6 +104,11 @@ export function countdown(airingAt: number, now = Date.now()): string {
   if (d > 0) return h > 0 ? `in ${d}d ${h}h` : `in ${d}d`
   if (h > 0) return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`
   return `in ${Math.max(1, m)}m`
+}
+
+/** Whether a broadcast time (unix **seconds**) has already happened. */
+export function hasAired(airingAt: number, now = Date.now()): boolean {
+  return airingAt * 1000 <= now
 }
 
 /**

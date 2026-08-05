@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { CalendarDays, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   Button,
   Chip,
@@ -24,6 +25,7 @@ import { cn } from '@/lib/cn'
 import {
   countdown,
   dayMonth,
+  hasAired,
   startOfDay,
   startOfWeek,
   timeLabel,
@@ -229,12 +231,42 @@ function NextUpBand() {
       if (entry.status !== 'current' && entry.status !== 'planning') continue
       const media = map.get(entry.mediaId)
       if (!media?.nextAiringEpisode) continue
+      // A "next" episode whose time has passed is not next — it is a stale
+      // record. The refetch below is already on its way; showing the old one
+      // in the meantime is how a Monday broadcast ends up sitting in a band
+      // headed "Next episode" on Thursday.
+      if (hasAired(media.nextAiringEpisode.airingAt)) continue
       out.push({ entry, media })
     }
     return out.sort(
       (a, b) => a.media.nextAiringEpisode!.airingAt - b.media.nextAiringEpisode!.airingAt,
     )
   }, [entries, map])
+
+  /**
+   * Catalog records are cached for a day, which is right for titles and covers
+   * and wrong for the one field on them that expires on a schedule. A stale
+   * `nextAiringEpisode` is the difference between this page being a calendar
+   * and being a screenshot of one, so arriving here with any of them in the
+   * past forces a refetch of the batches that carry them.
+   *
+   * Scoped to this page on purpose. Every other screen reads these records for
+   * artwork and titles, which genuinely do not change; only the calendar cares
+   * enough about the clock to spend a request on it.
+   */
+  const client = useQueryClient()
+  const stale = useMemo(
+    () =>
+      ids.some((id) => {
+        const next = map.get(id)?.nextAiringEpisode
+        return next != null && hasAired(next.airingAt)
+      }),
+    [ids, map],
+  )
+
+  useEffect(() => {
+    if (stale) void client.invalidateQueries({ queryKey: ['media-batch'] })
+  }, [stale, client])
 
   if (queue.length === 0) return null
 
@@ -319,16 +351,28 @@ function DayGroup({
   slots: AiringSlot[]
   tracked: Map<number, LibraryEntry>
 }) {
+  // A day is done when every broadcast on it has been. Today counts as done
+  // late in the evening, which is correct and is the point: "Wednesday, all
+  // aired" is a different day from "Wednesday, four still to come".
+  const remaining = slots.filter((s) => !hasAired(s.airingAt)).length
+
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h3 className={cn('text-display-sm', today ? 'text-accent' : 'text-ink')}>
+        <h3
+          className={cn(
+            'text-display-sm',
+            today ? 'text-accent' : remaining === 0 ? 'text-ink-3' : 'text-ink',
+          )}
+        >
           {weekdayShort(day)}
         </h3>
         <span className="font-mono-num text-meta text-ink-3">{dayMonth(day)}</span>
         {today && <Eyebrow>Today</Eyebrow>}
         <span className="hidden h-px min-w-8 flex-1 translate-y-[-0.35em] bg-line sm:block" aria-hidden />
-        <span className="font-mono-num text-meta text-ink-3">{slots.length}</span>
+        <span className="font-mono-num text-meta text-ink-3">
+          {remaining === 0 ? `${slots.length} · all aired` : `${remaining} of ${slots.length} to come`}
+        </span>
       </div>
 
       <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -354,7 +398,17 @@ function SlotRow({ slot, entry }: { slot: AiringSlot; entry?: LibraryEntry }) {
   const { media, episode, airingAt } = slot
   const mine = Boolean(entry)
   const total = totalUnits(media)
-  const behind = entry ? episode - 1 - entry.progress : 0
+  const aired = hasAired(airingAt)
+
+  /**
+   * "Behind" only means something for an episode that exists.
+   *
+   * Counted against the last episode that has actually gone out, not against
+   * this row's — otherwise Friday's broadcast tells you you are one behind on
+   * Tuesday, which is a debt you cannot possibly have incurred yet.
+   */
+  const behind = entry && aired ? episode - entry.progress : 0
+  const watched = Boolean(entry && aired && entry.progress >= episode)
 
   return (
     <li>
@@ -366,10 +420,18 @@ function SlotRow({ slot, entry }: { slot: AiringSlot; entry?: LibraryEntry }) {
           mine
             ? 'border-line-strong bg-surface hover:border-accent-line'
             : 'border-line bg-surface/50 hover:border-line-strong',
+          // An episode that has gone out is not news. It stays on the calendar
+          // — a week you can only see the future half of is not a week — but it
+          // steps back so that "what is still coming" is what the page is
+          // about. Hover restores it in full.
+          aired && 'opacity-55 hover:opacity-100',
         )}
       >
         {mine && (
-          <span className="absolute inset-y-0 left-0 w-[3px] bg-accent" aria-hidden />
+          <span
+            className={cn('absolute inset-y-0 left-0 w-[3px]', aired ? 'bg-ink-3' : 'bg-accent')}
+            aria-hidden
+          />
         )}
 
         <div className={cn('w-10 shrink-0', mine && 'ml-1')}>
@@ -390,10 +452,23 @@ function SlotRow({ slot, entry }: { slot: AiringSlot; entry?: LibraryEntry }) {
             <span>Ep {episode}</span>
             <span aria-hidden>·</span>
             <span>{timeLabel(airingAt * 1000)}</span>
-            {mine && behind > 0 && (
+
+            {/* The word the page was missing. Without it a Monday broadcast and
+                a Friday one are the same row, and the whole calendar reads as a
+                list of things that have not happened yet. */}
+            {aired && (
               <>
                 <span aria-hidden>·</span>
-                <span className="text-paused">{behind} behind</span>
+                {watched ? (
+                  <span className="flex items-center gap-1 text-watching">
+                    <Check className="size-3" strokeWidth={3} aria-hidden />
+                    Watched
+                  </span>
+                ) : (
+                  <span className={mine ? 'text-paused' : undefined}>
+                    Aired{mine && behind > 1 ? ` · ${behind} behind` : ''}
+                  </span>
+                )}
               </>
             )}
           </p>

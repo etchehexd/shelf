@@ -30,6 +30,57 @@ import { ordinal } from '@/lib/format'
  * still draggable, not a verdict. Nothing is written until the last answer.
  */
 
+/**
+ * Worst-case questions to place one title into an existing field.
+ *
+ * The duel is a binary search, so the field halves on every answer. An empty
+ * field costs nothing — the first title in is simply first.
+ */
+export function questionsToPlace(fieldSize: number): number {
+  return fieldSize <= 0 ? 0 : Math.ceil(Math.log2(fieldSize + 1))
+}
+
+/**
+ * Worst-case questions to place `count` titles into a list already `ranked`
+ * long, given that each one placed lengthens the field for the next.
+ *
+ * Exported so the estimate on the button and the questions the duel actually
+ * asks come from the same arithmetic. An estimate derived independently of the
+ * thing it estimates is a promise nobody is keeping.
+ */
+export function questionsForBatch(ranked: number, count: number): number {
+  let total = 0
+  for (let i = 0; i < count; i += 1) total += questionsToPlace(ranked + i)
+  return total
+}
+
+/**
+ * How long that is, in words.
+ *
+ * Five seconds a question: a head-to-head is two covers and a judgment, which
+ * is a beat longer than a click and much shorter than a decision. Rounded to
+ * something deliberately vague — the number's job is to tell you whether this
+ * is a coffee-break job or a sit-down one, and a false precision like "4 min
+ * 35 sec" answers a question nobody asked.
+ */
+export function estimateLabel(questions: number): string {
+  // Placing the very first title into an empty order asks nothing at all: it is
+  // first because there is nothing for it not to be.
+  if (questions === 0) return 'instant'
+
+  const minutes = Math.round((questions * 5) / 60)
+  if (minutes < 1) return 'under a minute'
+  if (minutes === 1) return 'about a minute'
+  if (minutes < 60) return `about ${minutes} min`
+
+  // Past an hour, minutes stop being a unit anyone can feel — "about 112 min"
+  // is a number you have to convert before it means anything.
+  const hours = Math.floor(minutes / 60)
+  const rest = Math.round((minutes % 60) / 15) * 15
+  if (rest === 0 || rest === 60) return `about ${hours + (rest === 60 ? 1 : 0)} hr`
+  return `about ${hours} hr ${rest} min`
+}
+
 export interface PlacementDuelProps {
   /** The title being placed. */
   challenger: MediaSummary
@@ -38,9 +89,29 @@ export interface PlacementDuelProps {
   onClose: () => void
   /** Resolve a ranked id to its artwork. */
   resolve: (id: number) => MediaSummary | undefined
+  /**
+   * Called instead of `onClose` once a placement is written.
+   *
+   * Its presence is what puts the dialog in batch mode: the caller is running
+   * a queue and decides what happens next, so the dialog neither closes itself
+   * nor raises a toast per title. Absent, the dialog behaves as a one-shot and
+   * closes with an undoable toast, which is right when you placed exactly one
+   * thing on purpose and wrong forty times in a row.
+   */
+  onPlaced?: (placedId: number) => void
+  /** Position in a batch, 1-based. Shown so a queue has a visible end. */
+  batch?: { done: number; total: number }
 }
 
-export function PlacementDuel({ challenger, kind, open, onClose, resolve }: PlacementDuelProps) {
+export function PlacementDuel({
+  challenger,
+  kind,
+  open,
+  onClose,
+  resolve,
+  onPlaced,
+  batch,
+}: PlacementDuelProps) {
   const language = usePrefs((s) => s.titleLanguage)
   const moveRank = useLibrary((s) => s.moveRank)
   const removeRank = useLibrary((s) => s.removeRank)
@@ -114,6 +185,15 @@ export function PlacementDuel({ challenger, kind, open, onClose, resolve }: Plac
     const wasAt = rankedIds.indexOf(challenger.id)
 
     moveRank(kind, challenger.id, index)
+
+    if (onPlaced) {
+      // Batch mode. No toast: forty of them stacked behind a dialog that is
+      // still open is not feedback, and the dialog's own counter already says
+      // what just happened.
+      onPlaced(challenger.id)
+      return
+    }
+
     toast({
       message: `${displayTitle(challenger, language)} placed ${ordinal(index + 1)}`,
       action: {
@@ -218,16 +298,44 @@ export function PlacementDuel({ challenger, kind, open, onClose, resolve }: Plac
             Too close to call
           </Button>
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Stop
+            {batch ? 'Stop here' : 'Stop'}
           </Button>
         </>
       }
     >
-      <div className="mb-6 flex items-center justify-center gap-3">
+      {/* In a batch, the per-title question count is the small number and the
+          queue is the big one. Someone forty titles into a run of ninety wants
+          to know how much of the *run* is left far more than how many questions
+          this particular title still needs. */}
+      {batch && (
+        <div className="mb-5">
+          <div className="mb-2 flex items-baseline justify-between gap-4">
+            <span className="label-cat label-cat-plain">
+              Title {batch.done} of {batch.total}
+            </span>
+            <span className="font-mono-num text-meta text-ink-3 tabular-nums">
+              {batch.total - batch.done} to go
+            </span>
+          </div>
+          <div className="h-1 overflow-hidden rounded-full bg-surface-3">
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-500 ease-[var(--ease-out-expo)]"
+              style={{ width: `${((batch.done - 1) / batch.total) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6 flex flex-col items-center justify-center gap-2">
         <Eyebrow>
           <Scale className="size-3" aria-hidden />
           {remaining <= 1 ? 'Last question' : `About ${remaining} left`}
         </Eyebrow>
+        {batch && (
+          <p className="clamp-1 max-w-md text-center text-meta text-ink-2">
+            Placing {displayTitle(challenger, language)}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-6">

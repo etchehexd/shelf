@@ -39,12 +39,22 @@ export function ratingWord(score: number | null | undefined): string {
 
 type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
-// The poster row is the small end of this ramp and it is the one that has to
-// survive being read at arm's length, on artwork, in peripheral vision. Two
-// pixels of gap at 14px let the arms of neighbouring stars very nearly touch,
-// so the row arrived at the eye as one serrated band that had to be *parsed*
-// before it could be counted. Bigger marks, and air between them.
-const STAR_PX: Record<Size, number> = { xs: 16, sm: 19, md: 22, lg: 28, xl: 36 }
+/**
+ * Back to the original sizes.
+ *
+ * These were briefly grown to fix the poster row being hard to read, which was
+ * the wrong lever: the row was hard to read because the glyph dissolved and the
+ * unlit stars sat too close to the lit ones in both position and brightness,
+ * not because 14px is too small for five marks. Growing it made the plate a bar
+ * across the bottom of a 132px poster and bought nothing the shape and contrast
+ * work below wasn't already buying.
+ *
+ * The one thing kept from that pass is a pixel of extra gap at the two small
+ * sizes. Two pixels at 14px let the arms of neighbouring stars very nearly
+ * touch, so the row arrived as one serrated band that had to be parsed before
+ * it could be counted — and four pixels of total width is not a size change.
+ */
+const STAR_PX: Record<Size, number> = { xs: 14, sm: 17, md: 21, lg: 28, xl: 36 }
 const GAP_PX: Record<Size, number> = { xs: 3, sm: 4, md: 5, lg: 6, xl: 8 }
 
 /**
@@ -127,10 +137,20 @@ function Star({
             className={cn('absolute inset-y-0 left-0 h-full transition-colors duration-150', filledClass)}
             style={{
               width: px,
-              // A hairline of shadow under the lit stars. Ember on artwork is a
-              // warm mark on a warm background often enough that the edge needs
-              // its own contrast rather than borrowing the plate's.
-              filter: 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.4))',
+              /**
+               * What makes the lit stars pop, in place of making them bigger.
+               *
+               * Two layers doing different jobs: a tight contact shadow that
+               * sits the star *on* the plate rather than in it, and a wider
+               * soft halo that darkens whatever is immediately around the
+               * glyph. The halo is the one that matters — an ember star is a
+               * warm mark and cover art is warm more often than not, so the
+               * edge needs contrast of its own instead of borrowing the
+               * plate's. Both are black rather than tinted: a colored glow
+               * reads as a highlight state, and this is the resting state.
+               */
+              filter:
+                'drop-shadow(0 1px 1px rgb(0 0 0 / 0.55)) drop-shadow(0 0 2.5px rgb(0 0 0 / 0.4))',
             }}
           >
             <path
@@ -199,10 +219,7 @@ export function Rating({ value, size = 'sm', art, showValue, plate, className }:
           // Near-opaque, with a hairline. At 88% over bright cover art the
           // plate was tinted by whatever was behind it, so the stars were
           // fighting the artwork for contrast instead of sitting on a surface.
-          // Padding is tighter than it looks like it should be: the stars grew,
-          // and the plate has to stay a readout in the corner of a 132px poster
-          // rather than a bar across the bottom of it.
-          'rounded-full bg-canvas/95 px-1.5 py-0.5 ring-1 ring-inset ring-ink/10 shadow-[0_2px_6px_rgb(0_0_0/0.45)] backdrop-blur-md',
+          'rounded-full bg-canvas/95 px-2 py-1 ring-1 ring-inset ring-ink/10 shadow-[0_2px_6px_rgb(0_0_0/0.45)] backdrop-blur-md',
         className,
       )}
       style={{ gap: GAP_PX[size] + 4 }}

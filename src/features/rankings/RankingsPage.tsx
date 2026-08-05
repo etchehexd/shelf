@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import {
   DndContext,
@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Check, GripVertical, Plus, Search, Trophy, X } from 'lucide-react'
+import { Check, GripVertical, Layers, Plus, Search, Trophy, X } from 'lucide-react'
 import {
   Button,
   buttonClasses,
@@ -42,7 +42,7 @@ import { useEntriesOfKind, useRankedIds } from '@/data/store/selectors'
 import { useAuth } from '@/data/supabase/auth'
 import { SignInWall } from '@/features/auth/SignInWall'
 import type { LibraryEntry } from '@/data/store/types'
-import { PlacementDuel } from './PlacementDuel'
+import { estimateLabel, PlacementDuel, questionsForBatch } from './PlacementDuel'
 import { cn } from '@/lib/cn'
 import { pluralize } from '@/lib/format'
 
@@ -63,6 +63,25 @@ import { pluralize } from '@/lib/format'
  * Ranking stays deliberately independent of score. A shelf of 10/10s still has
  * a #1, and that judgment is the whole point of the page.
  */
+
+/**
+ * What can be ranked: things you have finished, and things you are in the
+ * middle of.
+ *
+ * Everything else in a library is a title you have no opinion about yet.
+ * *Planning* is a list of intentions — ranking it is ranking anticipation, not
+ * taste. *Paused* and *dropped* are verdicts the status already carries, and
+ * asking "is this better than that" about something you walked out of produces
+ * an answer that says more about why you stopped than about the show.
+ *
+ * Already-ranked titles are never removed by this rule. Dropping something you
+ * once placed 3rd is a change of heart worth recording, not grounds for the app
+ * to silently delete a judgment you made — so the filter governs what can be
+ * *added*, and the order keeps whatever is already in it.
+ */
+function isRankable(entry: LibraryEntry): boolean {
+  return entry.status === 'completed' || entry.status === 'current'
+}
 export default function RankingsPage() {
   const { signedOut } = useAuth()
   const [params, setParams] = useSearchParams()
@@ -74,6 +93,24 @@ export default function RankingsPage() {
 
   const [adding, setAdding] = useState(false)
   const [dueling, setDueling] = useState<MediaSummary | null>(null)
+
+  /**
+   * The batch run.
+   *
+   * The queue is a ref, not state, and deliberately so: it is advanced from
+   * inside the dialog's commit callback, which holds whichever copy of this
+   * component's closure was current when the duel last rendered. Read a queue
+   * out of that closure and you are reading a list that may be one placement
+   * out of date — the kind of bug that shows up as a title being asked about
+   * twice, or a run that will not end. A ref is always the live list.
+   *
+   * `queueLeft` mirrors its length purely so the counter re-renders; nothing
+   * decides anything from it. It holds the titles *after* the one on screen,
+   * so the challenger and the queue never both own the same id.
+   */
+  const queueRef = useRef<number[]>([])
+  const [queueLeft, setQueueLeft] = useState(0)
+  const [batchTotal, setBatchTotal] = useState(0)
 
   /**
    * `?place=<id>` opens the duel directly.
@@ -131,7 +168,66 @@ export default function RankingsPage() {
     .map((id) => map.get(id))
     .filter(Boolean) as MediaSummary[]
 
-  const unranked = entries.length - rankedIds.length
+  /** Everything eligible, and the eligible part of it that has no place yet. */
+  const rankable = useMemo(() => entries.filter(isRankable), [entries])
+
+  const pending = useMemo(() => {
+    const placed = new Set(rankedIds)
+    return (
+      rankable
+        .filter((e) => !placed.has(e.mediaId))
+        /**
+         * Best first.
+         *
+         * Not cosmetic: the binary search compares against whatever order
+         * already exists, so seeding the top of the list with titles you have
+         * strong opinions about makes every later comparison a more meaningful
+         * question. Feeding it the unrated tail first builds an arbitrary
+         * spine and then asks you to measure your favourites against it.
+         */
+        .sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || b.updatedAt - a.updatedAt)
+        .map((e) => e.mediaId)
+    )
+  }, [rankable, rankedIds])
+
+  const unranked = pending.length
+  const estimate = estimateLabel(questionsForBatch(rankedIds.length, unranked))
+
+  /** Start placing everything unplaced, one duel after another. */
+  const startBatch = () => {
+    // Resolved up front: a title whose artwork never arrived cannot be shown in
+    // a head-to-head, and discovering that mid-run would leave the counter
+    // promising a title the queue then skips.
+    const ready = pending.map((id) => map.get(id)).filter(Boolean) as MediaSummary[]
+    const [first, ...rest] = ready
+    if (!first) return
+
+    queueRef.current = rest.map((m) => m.id)
+    setQueueLeft(rest.length)
+    setBatchTotal(ready.length)
+    setDueling(first)
+  }
+
+  const endBatch = () => {
+    queueRef.current = []
+    setQueueLeft(0)
+    setBatchTotal(0)
+    setDueling(null)
+  }
+
+  /** One placement written; move to the next, or finish. */
+  const advanceBatch = () => {
+    while (queueRef.current.length > 0) {
+      const next = map.get(queueRef.current.shift()!)
+      if (!next) continue
+      setQueueLeft(queueRef.current.length)
+      setDueling(next)
+      return
+    }
+
+    toast({ message: `${pluralize(batchTotal, 'title')} placed` })
+    endBatch()
+  }
 
   // Your #1 colors the whole room. Nothing on this page is more yours.
   usePageAccent(podium[0]?.color, useResolvedTheme())
@@ -176,15 +272,28 @@ export default function RankingsPage() {
             }))}
           />
 
-          <Button
-            variant="primary"
-            size="md"
-            icon={<Plus className="size-4" />}
-            onClick={() => setAdding(true)}
-            disabled={entries.length === 0}
-          >
-            Rank a title
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The estimate is the whole reason this is a button rather than a
+                suggestion. "Rank the other 46" is a request to sit down for an
+                unknown length of time, which is why nobody ever does it; "about
+                6 min" is a decision you can actually make. */}
+            {unranked > 0 && (
+              <Button size="md" icon={<Layers className="size-4" />} onClick={startBatch}>
+                Rank remaining
+                <span className="font-mono-num ml-1.5 text-ink-3">· {estimate}</span>
+              </Button>
+            )}
+
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus className="size-4" />}
+              onClick={() => setAdding(true)}
+              disabled={rankable.length === 0}
+            >
+              Rank a title
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -192,12 +301,23 @@ export default function RankingsPage() {
         <EmptyState
           icon={<Trophy className="size-6" strokeWidth={1.5} />}
           title="Nothing ordered yet"
-          description="A ranking is a different question from a score. You can hand out a dozen 10s and still know exactly which one comes first — this is where that answer lives."
+          description={
+            rankable.length === 0 && entries.length > 0
+              ? // The specific, useful version of "you can't do this yet". A
+                // shelf of things you have not started is a real state to be
+                // in, and "nothing to rank" would read as a bug in it.
+                'Ranking starts once you have watched something. Everything here is still planned, paused or dropped — finish one, or start it, and it becomes rankable.'
+              : 'A ranking is a different question from a score. You can hand out a dozen 10s and still know exactly which one comes first — this is where that answer lives.'
+          }
           action={
-            entries.length > 0 ? (
+            rankable.length > 0 ? (
               <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
                 Rank your first title
               </Button>
+            ) : entries.length > 0 ? (
+              <Link to="/library" className={buttonClasses('primary', 'md')}>
+                Open your shelf
+              </Link>
             ) : (
               <Link to="/discover" className={buttonClasses('primary', 'md')}>
                 Find something first
@@ -241,7 +361,7 @@ export default function RankingsPage() {
             {unranked > 0 && (
               <button
                 type="button"
-                onClick={() => setAdding(true)}
+                onClick={startBatch}
                 className={cn(
                   'group flex w-full items-center justify-between gap-4 rounded-md border border-dashed border-line',
                   'px-4 py-3.5 text-label text-ink-2 transition-colors',
@@ -249,13 +369,16 @@ export default function RankingsPage() {
                 )}
               >
                 <span>
-                  {pluralize(unranked, 'title')} in your library {unranked === 1 ? 'is' : 'are'} still
-                  unranked
+                  {pluralize(unranked, 'finished or in-progress title')}{' '}
+                  {unranked === 1 ? 'has' : 'have'} no place yet
                 </span>
-                <Plus
-                  className="size-4 shrink-0 transition-transform duration-300 group-hover:rotate-90"
-                  aria-hidden
-                />
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="font-mono-num text-meta text-ink-3">{estimate}</span>
+                  <Plus
+                    className="size-4 transition-transform duration-300 group-hover:rotate-90"
+                    aria-hidden
+                  />
+                </span>
               </button>
             )}
           </section>
@@ -269,7 +392,7 @@ export default function RankingsPage() {
           setAdding(false)
           setDueling(media)
         }}
-        entries={entries}
+        entries={rankable}
         map={map}
         rankedIds={rankedIds}
       />
@@ -279,8 +402,13 @@ export default function RankingsPage() {
           challenger={dueling}
           kind={kind}
           open
-          onClose={() => setDueling(null)}
+          // Stopping mid-batch keeps everything already placed. The order is
+          // built one committed write at a time, so there is no half-finished
+          // state to unwind — you simply stop answering.
+          onClose={endBatch}
           resolve={(id) => map.get(id)}
+          onPlaced={batchTotal > 0 ? advanceBatch : undefined}
+          batch={batchTotal > 0 ? { done: batchTotal - queueLeft, total: batchTotal } : undefined}
         />
       )}
     </div>
@@ -557,6 +685,11 @@ function RankRow({
  * Adding to the ranking. A wall of covers from your own library rather than a
  * dropdown of titles — you are choosing by memory of the thing, and the artwork
  * is the fastest route to that memory.
+ *
+ * `entries` arrives pre-filtered to what `isRankable` allows, so the absence of
+ * your planning list is a property of the page rather than a rule this dialog
+ * enforces separately. The description says so out loud: a picker missing half
+ * your library without explaining why reads as a broken search.
  */
 function RankPicker({
   open,
@@ -597,7 +730,7 @@ function RankPicker({
       open={open}
       onClose={onClose}
       title="Rank a title"
-      description="Pick one and you'll be asked a few head-to-heads to find its place."
+      description="Everything you've finished or started. Pick one and you'll be asked a few head-to-heads to find its place."
       size="lg"
       footer={
         <Button variant="ghost" size="sm" onClick={onClose}>
@@ -617,7 +750,7 @@ function RankPicker({
       {candidates.length === 0 ? (
         <p className="flex flex-col items-center gap-3 py-12 text-center text-body text-ink-3">
           <Search className="size-5" strokeWidth={1.5} aria-hidden />
-          Nothing in your library matches.
+          Nothing you've watched matches.
         </p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(84px,1fr))] gap-3">
