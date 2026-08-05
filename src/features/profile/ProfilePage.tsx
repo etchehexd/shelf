@@ -29,9 +29,9 @@ import {
   Dialog,
   Eyebrow,
   Field,
+  GenrePill,
   ImagePicker,
   Input,
-  Pill,
   Rail,
   Rating,
   ScoreHistogram,
@@ -217,15 +217,11 @@ export default function ProfilePage() {
               <Eyebrow>Genres</Eyebrow>
               {affinity.map((g) => (
                 <Link key={g.genre} to={`/discover?genre=${encodeURIComponent(g.genre)}`}>
-                  <Pill tone="accent" size="sm">
-                    {g.genre}
-                  </Pill>
+                  <GenrePill genre={g.genre} size="sm" solid />
                 </Link>
               ))}
               {profile.favoriteGenres.map((g) => (
-                <Pill key={g} size="sm">
-                  {g}
-                </Pill>
+                <GenrePill key={g} genre={g} size="sm" />
               ))}
             </div>
           )}

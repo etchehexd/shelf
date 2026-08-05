@@ -1,5 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { genreColors } from '@/lib/genre'
+import { useResolvedTheme } from './theme'
 
 export type Tone =
   | 'neutral'
@@ -70,15 +72,27 @@ export function Pill({
   )
 }
 
-/** Genre / tag chips — same shape, but clickable and unstyled by tone. */
+/**
+ * Genre / tag chips — same shape, but clickable.
+ *
+ * Passing `genre` tints the inactive state with that genre's own color, so a
+ * row of them is scannable rather than a wall of identical grey. The active
+ * state stays brand accent regardless: "selected" has to look the same for
+ * every chip in the product, or selection stops being readable.
+ */
 export function Chip({
   active,
+  genre,
   className,
   ...rest
-}: { active?: boolean } & HTMLAttributes<HTMLButtonElement>) {
+}: { active?: boolean; genre?: string } & HTMLAttributes<HTMLButtonElement>) {
+  const theme = useResolvedTheme()
+  const c = genre && !active ? genreColors(genre, theme) : null
+
   return (
     <button
       type="button"
+      style={c ? { background: c.bg, color: c.fg, borderColor: c.bg } : undefined}
       className={cn(
         'inline-flex h-7.5 items-center rounded-full border px-3 text-meta font-medium whitespace-nowrap',
         'transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.97]',
@@ -88,7 +102,9 @@ export function Chip({
             // does not replay it, because the animation belongs to the moment
             // of turning on, not to being on.
             'border-accent-line bg-accent text-accent-ink shadow-xs motion-safe:animate-[squish_300ms_var(--ease-spring)]'
-          : 'border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink',
+          : c
+            ? 'hover:brightness-125'
+            : 'border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink',
         className,
       )}
       {...rest}

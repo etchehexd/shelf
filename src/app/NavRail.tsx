@@ -102,10 +102,22 @@ export function NavRail() {
                 end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    'group relative flex h-11 items-center gap-3.5 rounded-md px-3.5 text-label font-medium',
+                    'group relative flex h-11 items-center rounded-md px-3.5 text-label font-medium',
                     'transition-colors duration-200',
                     'justify-center',
-                    collapsed ? 'lg:justify-center' : 'lg:justify-start',
+                    /* The gap has to collapse with the label.
+                       Below lg the label is display:none, so it leaves the
+                       flex row and the gap costs nothing. At lg it becomes a
+                       block with max-width:0 — still a flex item, so a 14px
+                       gap was still being reserved between the icon and a
+                       label of zero width. That pushed every icon 7px left of
+                       the rail's center, which is the "off-centered" marker:
+                       the spine was correctly at the edge and vertically
+                       centered, but the icon it was meant to align with had
+                       drifted. */
+                    'gap-0',
+                    collapsed ? 'lg:justify-center lg:gap-0' : 'lg:justify-start lg:gap-3.5',
+                    'transition-[gap] duration-[380ms] ease-[var(--ease-out-expo)]',
                     isActive
                       ? 'bg-surface-2 text-ink'
                       : 'text-ink-3 hover:bg-surface-2/60 hover:text-ink-2',

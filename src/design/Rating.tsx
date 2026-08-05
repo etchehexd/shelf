@@ -457,14 +457,25 @@ const BAND_TEXT: Record<ScoreBand, string> = {
   '0': 'text-score-0',
 }
 
+/** The hairline around the split pill, so the two halves read as one object. */
+const BAND_RING: Record<ScoreBand, string> = {
+  '9': 'ring-score-9/40',
+  '8': 'ring-score-8/40',
+  '7': 'ring-score-7/40',
+  '6': 'ring-score-6/40',
+  '5': 'ring-score-5/40',
+  '3': 'ring-score-3/40',
+  '0': 'ring-score-0/40',
+}
+
 const BAND_WASH: Record<ScoreBand, string> = {
-  '9': 'bg-score-9/12 text-score-9',
-  '8': 'bg-score-8/12 text-score-8',
-  '7': 'bg-score-7/12 text-score-7',
-  '6': 'bg-score-6/14 text-score-6',
-  '5': 'bg-score-5/14 text-score-5',
-  '3': 'bg-score-3/12 text-score-3',
-  '0': 'bg-score-0/12 text-score-0',
+  '9': 'bg-score-9/18 text-score-9',
+  '8': 'bg-score-8/18 text-score-8',
+  '7': 'bg-score-7/18 text-score-7',
+  '6': 'bg-score-6/20 text-score-6',
+  '5': 'bg-score-5/20 text-score-5',
+  '3': 'bg-score-3/18 text-score-3',
+  '0': 'bg-score-0/18 text-score-0',
 }
 
 /**
@@ -527,12 +538,17 @@ export function CommunityScore({
     return (
       <span
         className={cn(
-          'font-mono-num inline-flex items-baseline justify-center rounded-[5px] font-bold tabular-nums',
-          // The inset hairline is what stops a pale band dissolving into a
-          // pale cover — a solid chip on artwork needs its own edge.
-          'shadow-[0_1px_3px_rgb(0_0_0/0.35),inset_0_0_0_1px_rgb(255_255_255/0.18)]',
+          'font-mono-num inline-flex items-center justify-center rounded-md font-extrabold tabular-nums',
+          // A real shadow and a proper corner. The old 5px radius and hairline
+          // made this read as a sticker applied to the poster rather than as a
+          // reading of it.
+          'shadow-[0_2px_6px_rgb(0_0_0/0.45),inset_0_0_0_1px_rgb(255_255_255/0.22)]',
           'transition-transform duration-300 ease-[var(--ease-spring)] group-hover/card:scale-110',
-          size === 'sm' ? 'px-1.5 py-[0.1rem] text-[0.6875rem]' : 'px-2 py-0.5 text-[0.78rem]',
+          // Deliberately *not* scaled down with the rest of the type ramp. At
+          // 11px semibold on busy cover art the number was legible only if you
+          // went looking for it, which is the opposite of its job — on Discover
+          // it is the only signal there is.
+          size === 'sm' ? 'px-2 py-0.5 text-[0.8125rem]' : 'px-2.5 py-1 text-[0.9375rem]',
           BAND_SOLID[band],
           className,
         )}
@@ -569,20 +585,27 @@ export function CommunityScore({
     )
   }
 
+  /**
+   * The pill: a solid band-colored cap carrying the number, then the scale in
+   * a quiet tail. The old version was a tinted wash with a dot — at 12% opacity
+   * the color it was supposed to be communicating was barely present, so it
+   * read as a grey pill with a number in it. Splitting it means the color is
+   * solid where the digits are and the "/10" stays out of the way.
+   */
   return (
     <span
       className={cn(
-        'font-mono-num inline-flex items-baseline gap-1 rounded-full px-2 py-0.5 font-semibold tabular-nums',
-        size === 'sm' ? 'text-[0.6875rem]' : 'text-meta',
-        BAND_WASH[band],
+        'font-mono-num inline-flex items-stretch overflow-hidden rounded-md font-bold tabular-nums',
+        'ring-1 ring-inset',
+        BAND_RING[band],
+        size === 'sm' ? 'text-[0.75rem]' : 'text-[0.8125rem]',
         className,
       )}
       title={label}
       aria-label={label}
     >
-      <span className="size-1.5 shrink-0 self-center rounded-full bg-current" aria-hidden />
-      {text}
-      <span className="text-[0.85em] opacity-65">/10</span>
+      <span className={cn('px-1.5 py-0.5', BAND_SOLID[band])}>{text}</span>
+      <span className={cn('px-1 py-0.5 text-[0.85em] font-semibold', BAND_WASH[band])}>/10</span>
     </span>
   )
 }

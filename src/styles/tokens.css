@@ -246,22 +246,33 @@
   --font-mono: 'Creato Display', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
 
-  /* The catalog label: small, wide, uppercase. Appears on every page. */
-  --text-micro: 0.65625rem;
+  /* ---- scale ------------------------------------------------------------
+     One step down across the whole ramp.
+
+     The product is a *catalog*: its job is to put as many titles in front of
+     you as it can while staying readable, and it was set at roughly a reading
+     app's size — 0.90625rem body, a 4rem page title — which meant a laptop
+     screen held about half of what it should. Everything below is scaled by
+     ~0.9, so more fits without any layout changing shape. The one thing that
+     did not shrink is the community score, which is a signal you read at a
+     glance rather than text you read a line at a time.
+
+     The catalog label: small, wide, uppercase. Appears on every page. */
+  --text-micro: 0.625rem;
   --text-micro--line-height: 1.2;
   --text-micro--letter-spacing: 0.14em;
   --text-micro--font-weight: 600;
 
-  --text-meta: 0.75rem;
+  --text-meta: 0.6875rem;
   --text-meta--line-height: 1.4;
 
-  --text-label: 0.8125rem;
+  --text-label: 0.75rem;
   --text-label--line-height: 1.45;
 
-  --text-body: 0.90625rem;
+  --text-body: 0.84375rem;
   --text-body--line-height: 1.65;
 
-  --text-title: 0.96875rem;
+  --text-title: 0.90625rem;
   --text-title--line-height: 1.35;
   --text-title--letter-spacing: -0.011em;
 
@@ -270,22 +281,22 @@
      unresolved. Weights are 700/800 — the family ships no 600, and asking for
      one with `font-synthesis-weight: none` in force just snaps to 700 anyway,
      so the scale says what it means. */
-  --text-display-sm: 1.25rem;
+  --text-display-sm: 1.125rem;
   --text-display-sm--line-height: 1.24;
   --text-display-sm--letter-spacing: -0.014em;
   --text-display-sm--font-weight: 700;
 
-  --text-display-md: 1.75rem;
+  --text-display-md: 1.5rem;
   --text-display-md--line-height: 1.14;
   --text-display-md--letter-spacing: -0.02em;
   --text-display-md--font-weight: 700;
 
-  --text-display-lg: 2.625rem;
+  --text-display-lg: 2.125rem;
   --text-display-lg--line-height: 1.06;
   --text-display-lg--letter-spacing: -0.026em;
   --text-display-lg--font-weight: 800;
 
-  --text-display-xl: 4rem;
+  --text-display-xl: 3rem;
   --text-display-xl--line-height: 0.96;
   --text-display-xl--letter-spacing: -0.032em;
   --text-display-xl--font-weight: 800;

@@ -8,6 +8,7 @@
 export { Button, IconButton, buttonClasses, type ButtonProps, type IconButtonProps } from './Button'
 export { Card, Well, ShelfLine, Rule, type CardProps } from './Card'
 export { Pill, Chip, type PillProps, type Tone } from './Pill'
+export { GenrePill, type GenrePillProps } from './GenrePill'
 export {
   Rating,
   RatingInput,

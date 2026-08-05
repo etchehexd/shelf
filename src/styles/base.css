@@ -21,7 +21,7 @@
        Regular is loaded only so that anything explicitly asking for 400 has
        something real to land on instead of being synthesized. */
     font-weight: 500;
-    font-size: 0.90625rem;
+    font-size: 0.84375rem;
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

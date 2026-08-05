@@ -250,10 +250,10 @@ export interface MediaCardProps {
   /**
    * Hide everyone else's score.
    *
-   * On your own shelves — the Library, a collection you built — the crowd's
-   * opinion is not what you are there for, and a colored chip on every poster
-   * competes with your own stars for the same glance. Discover keeps it,
-   * because there the community score is the only signal you have.
+   * Off by default. Two surfaces opt in — Discover and the media page — and
+   * everywhere else the poster carries your stars and nothing else. A default
+   * of `true` meant every new call site inherited the crowd's number without
+   * anybody deciding it should.
    */
   showCommunity?: boolean
   /**
@@ -282,7 +282,7 @@ export function MediaCard({
   media,
   showProgress = true,
   showRank,
-  showCommunity = true,
+  showCommunity = false,
   index,
   bare,
   className,
@@ -527,34 +527,21 @@ export function MediaRow({
         </div>
       )}
 
-      {/* The two scores, captioned.
-          Side by side and unlabelled, a row of stars and a colored chip are
-          just two things in the same gutter — you have to already know the
-          product to know which is whose. Two words fixes it permanently, and
-          they are the only two words on the row, so it costs nothing.
-
-          "Yours" is also drawn on a quiet plate and the community chip is not:
-          different shape, different color, different ground, different
-          caption. There is no glance at which they look alike. */}
+      {/* Your score only.
+          The row used to carry a YOURS column and an EVERYONE column side by
+          side. On your own library the crowd's number is not what you came for,
+          and two scores in one gutter is the confusion the star treatment
+          exists to prevent. Community scores now live on exactly two surfaces:
+          Discover, where they are the only signal you have, and the media page,
+          where there is room to explain them. */}
       <div className="hidden w-24 shrink-0 flex-col items-end gap-1 sm:flex">
         <span className="text-[0.5rem] font-semibold tracking-[0.16em] text-ink-3/70 uppercase">
-          Yours
+          Your score
         </span>
         {entry?.score != null ? (
           <Rating value={entry.score} size="xs" />
         ) : (
           <span className="text-[0.625rem] text-ink-3/50">not rated</span>
-        )}
-      </div>
-
-      <div className="hidden w-16 shrink-0 flex-col items-end gap-1 lg:flex">
-        <span className="text-[0.5rem] font-semibold tracking-[0.16em] text-ink-3/70 uppercase">
-          Everyone
-        </span>
-        {media.averageScore != null ? (
-          <CommunityScore value={media.averageScore} variant="badge" size="sm" />
-        ) : (
-          <span className="text-[0.625rem] text-ink-3/50">—</span>
         )}
       </div>
 
@@ -595,7 +582,7 @@ export function MediaRow({
 export function ShelfCover({
   media,
   entry,
-  showCommunity = true,
+  showCommunity = false,
   width = 'md',
 }: {
   media: MediaSummary
@@ -688,6 +675,8 @@ export interface FeatureCardProps {
   /** Covers layered behind the main poster — the "pulled from the crate" look. */
   layered?: MediaSummary[]
   height?: 'md' | 'lg'
+  /** Discover only. Home's hero is your own shelf, not a recommendation. */
+  showCommunity?: boolean
   className?: string
 }
 
@@ -707,6 +696,7 @@ export function FeatureCard({
   action,
   layered = [],
   height = 'md',
+  showCommunity = false,
   className,
 }: FeatureCardProps) {
   const language = usePrefs((s) => s.titleLanguage)
@@ -781,7 +771,7 @@ export function FeatureCard({
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <p className="label-cat label-cat-plain">{metaLine(media)}</p>
-            <CommunityScore value={media.averageScore} variant="pill" />
+            {showCommunity && <CommunityScore value={media.averageScore} variant="pill" />}
           </div>
 
           {blurb && <div className="mt-3 max-w-md text-body text-ink-2">{blurb}</div>}

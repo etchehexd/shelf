@@ -225,6 +225,7 @@ export default function DiscoverPage() {
               return (
                 <Chip
                   key={g.genre}
+                  genre={g.genre}
                   active={on}
                   onClick={() =>
                     setFilters({
@@ -441,7 +442,7 @@ function BecauseLead({
         eyebrow={source ? <>Because you loved {displayTitle(source, language)}</> : undefined}
         title="Recommended For You"
       />
-      <FeatureCard media={first} height="lg" layered={rest.slice(0, 3)} />
+      <FeatureCard media={first} showCommunity height="lg" layered={rest.slice(0, 3)} />
       {rest.length > 0 && (
         <div className="pt-1">
           <ShelfBody media={rest} form="rail" />
@@ -674,7 +675,7 @@ function ShelfBody({ media, form }: { media: MediaSummary[]; form: ShelfForm }) 
     return (
       <LeanRow aria-label="Recommendations" size="md">
         {media.slice(0, 8).map((m) => (
-          <MediaCard key={m.id} media={m} showProgress={false} bare />
+          <MediaCard key={m.id} media={m} showProgress={false} showCommunity />
         ))}
       </LeanRow>
     )
@@ -684,7 +685,7 @@ function ShelfBody({ media, form }: { media: MediaSummary[]; form: ShelfForm }) 
     return (
       <div className="poster-grid grid-stagger">
         {media.slice(0, 12).map((m, i) => (
-          <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
+          <MediaCard key={m.id} media={m} showProgress={false} showCommunity index={i} className="cv-auto" />
         ))}
       </div>
     )
@@ -693,7 +694,7 @@ function ShelfBody({ media, form }: { media: MediaSummary[]; form: ShelfForm }) 
   return (
     <ShelfRail aria-label="Recommendations" size="md" gap="sm">
       {media.map((m, i) => (
-        <MediaCard key={m.id} media={m} showProgress={false} index={i} />
+        <MediaCard key={m.id} media={m} showProgress={false} showCommunity index={i} />
       ))}
     </ShelfRail>
   )
@@ -724,7 +725,7 @@ function Grid({ media }: { media: MediaSummary[] }) {
     return (
       <div className="poster-grid">
         {media.map((m, i) => (
-          <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
+          <MediaCard key={m.id} media={m} showProgress={false} showCommunity index={i} className="cv-auto" />
         ))}
       </div>
     )
@@ -739,14 +740,14 @@ function Grid({ media }: { media: MediaSummary[] }) {
 
   return (
     <div className="space-y-10">
-      <FeatureCard media={lead} eyebrow="Best match" layered={rest.slice(0, 3)} />
+      <FeatureCard media={lead} showCommunity eyebrow="Best match" layered={rest.slice(0, 3)} />
 
       {strong.length > 0 && (
         <Section>
           <SectionHeader title="Also matching" size="sm" bare />
           <LeanRow aria-label="Strong matches" size="md">
             {strong.map((m) => (
-              <MediaCard key={m.id} media={m} showProgress={false} bare />
+              <MediaCard key={m.id} media={m} showProgress={false} showCommunity />
             ))}
           </LeanRow>
         </Section>
@@ -761,7 +762,7 @@ function Grid({ media }: { media: MediaSummary[] }) {
           />
           <div className="poster-grid grid-stagger">
             {tail.map((m, i) => (
-              <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
+              <MediaCard key={m.id} media={m} showProgress={false} showCommunity index={i} className="cv-auto" />
             ))}
           </div>
         </Section>

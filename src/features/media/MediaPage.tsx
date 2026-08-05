@@ -17,6 +17,7 @@ import {
   CoverImage,
   CoverSkeleton,
   Eyebrow,
+  GenrePill,
   Pill,
   ProgressBar,
   ProgressStepper,
@@ -428,7 +429,7 @@ function Body({ media }: { media: Media }) {
             <div className="flex flex-wrap gap-1.5 pt-1">
               {media.genres.map((g) => (
                 <Link key={g} to={`/discover?genre=${encodeURIComponent(g)}`}>
-                  <Pill>{g}</Pill>
+                  <GenrePill genre={g} />
                 </Link>
               ))}
             </div>
@@ -544,7 +545,7 @@ function Body({ media }: { media: Media }) {
                 the row behave like objects you could pull one out of. */}
             <LeanRow aria-label="Recommendations" size="sm">
               {media.recommendations.slice(0, 9).map((r) => (
-                <MediaCard key={r.media.id} media={r.media} showProgress={false} bare />
+                <MediaCard key={r.media.id} media={r.media} showProgress={false} />
               ))}
             </LeanRow>
           </Section>

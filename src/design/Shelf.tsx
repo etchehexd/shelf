@@ -81,7 +81,7 @@ export function ShelfRail({
 
 export interface LeanRowProps {
   children: ReactNode
-  /** How far each cover tucks behind the one before it. */
+  /** Retained so existing call sites keep type-checking; no longer used. */
   overlap?: number
   size?: 'sm' | 'md'
   className?: string
@@ -89,22 +89,21 @@ export interface LeanRowProps {
 }
 
 /**
- * Covers shelved too tightly, leaning on each other.
+ * Formerly a row of overlapping covers. Now simply a tighter shelf.
  *
- * The whole row breathes outward when the pointer enters it and the hovered
- * cover pulls forward — the cheapest way to make a static row of artwork feel
- * like objects rather than images. Used where a row is *browsable* rather than
- * exhaustive: recommendations, relations, "more like this".
+ * The lean was meant to read as "shelved too tightly" and read instead as
+ * "broken": each cover showed a fraction of itself, titles were unreadable,
+ * and the row looked like a stack of vertical strips rather than a row of
+ * artwork. Reducing the overlap did not fix it — any overlap at all hides part
+ * of every cover but the first, and the whole point of a shelf is that you can
+ * recognise what is on it.
  *
- * Not a rail: this one does not scroll, because the lean only reads when you
- * can see the whole row leaning. Cap the list before you hand it over.
+ * Kept as a distinct component rather than deleted so pages retain a *second*
+ * shelf form: smaller covers, tighter gap, no scroll arrows. It still looks
+ * different from ShelfRail without hiding anything.
  */
 export function LeanRow({
   children,
-  // 0.9rem, not 2.25. At the old value a 128px cover showed roughly 40px of
-  // itself — a row of vertical slivers you could not identify a single title
-  // from. The lean has to read as "shelved tightly", not as "shredded".
-  overlap = 0.9,
   size = 'md',
   className,
   'aria-label': ariaLabel,
@@ -114,18 +113,12 @@ export function LeanRow({
 
   return (
     <div className={cn('min-w-0', className)} role="list" aria-label={ariaLabel}>
-      <div
-        className="overlap-row no-scrollbar overflow-x-auto"
-        style={{ '--overlap': `-${overlap}rem` } as React.CSSProperties}
-      >
+      <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1">
         {items.map((child, i) => (
           <div
             key={i}
             role="listitem"
-            className={cn('shrink-0', size === 'sm' ? 'w-24 md:w-28' : 'w-30 md:w-36')}
-            // Later covers sit further back, so the row has a depth order and
-            // the leftmost is unambiguously the front of the stack.
-            style={{ zIndex: items.length - i }}
+            className={cn('shrink-0', size === 'sm' ? 'w-24 md:w-28' : 'w-28 md:w-32')}
           >
             {child}
           </div>
