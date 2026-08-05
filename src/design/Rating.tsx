@@ -39,15 +39,24 @@ export function ratingWord(score: number | null | undefined): string {
 
 type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
-// Every step up one notch. The poster star row was 11px of accent-colored
-// star against a translucent plate over artwork — technically visible,
-// genuinely straining to read, and the smallest element carrying real meaning
-// anywhere in the product.
-const STAR_PX: Record<Size, number> = { xs: 14, sm: 17, md: 21, lg: 28, xl: 36 }
-const GAP_PX: Record<Size, number> = { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 }
+// The poster row is the small end of this ramp and it is the one that has to
+// survive being read at arm's length, on artwork, in peripheral vision. Two
+// pixels of gap at 14px let the arms of neighbouring stars very nearly touch,
+// so the row arrived at the eye as one serrated band that had to be *parsed*
+// before it could be counted. Bigger marks, and air between them.
+const STAR_PX: Record<Size, number> = { xs: 16, sm: 19, md: 22, lg: 28, xl: 36 }
+const GAP_PX: Record<Size, number> = { xs: 3, sm: 4, md: 5, lg: 6, xl: 8 }
 
+/**
+ * A deliberately fat star: inner radius at 0.51 of the outer, against the 0.38
+ * of the conventional one. Those thin classical arms are lovely at 36px and
+ * dissolve into antialiasing at 16 — half the ink in the glyph sits in points
+ * too narrow to render, which is most of why the poster row read as grey mush.
+ * Drawn with a rounded join stroked over the fill, which fattens the shape a
+ * further half-pixel and stops the tips fraying.
+ */
 const STAR_PATH =
-  'M12 1.9l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 16.92l-5.88 3.09 1.12-6.55L2.48 8.82l6.58-.96z'
+  'M12 1.5L15.17 7.63L21.99 8.76L17.14 13.67L18.17 20.49L12 17.4L5.83 20.49L6.86 13.67L2.01 8.76L8.83 7.63Z'
 
 /* --------------------------------------------------------------- the star -- */
 
@@ -90,8 +99,19 @@ function Star({
           transitionDelay: delay ? `${delay}ms` : undefined,
         }}
       >
-        <svg viewBox="0 0 24 24" className="absolute inset-0 size-full text-ink-3/55">
-          <path d={STAR_PATH} fill="currentColor" />
+        {/* The unlit track. Quiet enough that the lit ones are counted rather
+            than compared: at 55% it sat in the same brightness range as the
+            ember and the row became five similar marks you had to inspect one
+            by one to score. Its only remaining job is to hold the row's width
+            and say "out of five". */}
+        <svg viewBox="0 0 24 24" className="absolute inset-0 size-full text-ink-3/30">
+          <path
+            d={STAR_PATH}
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
         </svg>
 
         <span
@@ -105,9 +125,21 @@ function Star({
           <svg
             viewBox="0 0 24 24"
             className={cn('absolute inset-y-0 left-0 h-full transition-colors duration-150', filledClass)}
-            style={{ width: px }}
+            style={{
+              width: px,
+              // A hairline of shadow under the lit stars. Ember on artwork is a
+              // warm mark on a warm background often enough that the edge needs
+              // its own contrast rather than borrowing the plate's.
+              filter: 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.4))',
+            }}
           >
-            <path d={STAR_PATH} fill="currentColor" />
+            <path
+              d={STAR_PATH}
+              fill="currentColor"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
           </svg>
         </span>
       </span>
@@ -146,8 +178,14 @@ export interface RatingProps {
  *
  * This is the only way a personal score is ever drawn in this product. A bare
  * numeral in the corner of a poster says nothing at a glance and looks like
- * every other tracker; ★★★★☆ is legible at 11px, in peripheral vision, on top
- * of artwork, and it is unmistakably *yours* rather than the crowd's.
+ * every other tracker; ★★★★☆ is countable in peripheral vision, on top of
+ * artwork, and it is unmistakably *yours* rather than the crowd's.
+ *
+ * "Countable" is load-bearing, and it is what the small end of the size ramp is
+ * tuned for. Five marks are read at a glance only while they are separate
+ * objects with an obvious lit/unlit split. Crowd them, thin them, or bring the
+ * unlit ones up near the lit ones in brightness and the row becomes something
+ * you squint at and tally — worse than the numeral it replaced.
  */
 export function Rating({ value, size = 'sm', art, showValue, plate, className }: RatingProps) {
   const px = STAR_PX[size]
@@ -161,7 +199,10 @@ export function Rating({ value, size = 'sm', art, showValue, plate, className }:
           // Near-opaque, with a hairline. At 88% over bright cover art the
           // plate was tinted by whatever was behind it, so the stars were
           // fighting the artwork for contrast instead of sitting on a surface.
-          'rounded-full bg-canvas/95 px-2 py-1 ring-1 ring-inset ring-ink/10 shadow-[0_2px_6px_rgb(0_0_0/0.45)] backdrop-blur-md',
+          // Padding is tighter than it looks like it should be: the stars grew,
+          // and the plate has to stay a readout in the corner of a 132px poster
+          // rather than a bar across the bottom of it.
+          'rounded-full bg-canvas/95 px-1.5 py-0.5 ring-1 ring-inset ring-ink/10 shadow-[0_2px_6px_rgb(0_0_0/0.45)] backdrop-blur-md',
         className,
       )}
       style={{ gap: GAP_PX[size] + 4 }}
