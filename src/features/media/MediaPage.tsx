@@ -20,12 +20,13 @@ import {
   Pill,
   ProgressBar,
   ProgressStepper,
-  Rail,
+  LeanRow,
   Rating,
   RatingInput,
   ratingWord,
   Section,
   SectionHeader,
+  ShelfRail,
   Skeleton,
   useResolvedTheme,
 } from '@/design'
@@ -519,29 +520,33 @@ function Body({ media }: { media: Media }) {
         {media.relations.length > 0 && (
           <Section>
             <SectionHeader title="Related" size="sm" />
-            <Rail aria-label="Related media" gap="sm">
+            {/* A rail on a shelf line, with the lead cover largest. Related
+                titles have a natural order — prequel, sequel, side story — so
+                a graduated row reads left to right rather than as a table. */}
+            <ShelfRail aria-label="Related media" size="sm" gap="sm">
               {media.relations.slice(0, 12).map((r) => (
-                <div key={`${r.relationType}-${r.media.id}`} className="w-30 shrink-0">
+                <div key={`${r.relationType}-${r.media.id}`}>
                   <p className="label-cat label-cat-plain mb-2 truncate">
                     {humanize(r.relationType)}
                   </p>
                   <MediaCard media={r.media} showProgress={false} />
                 </div>
               ))}
-            </Rail>
+            </ShelfRail>
           </Section>
         )}
 
         {media.recommendations.length > 0 && (
           <Section>
             <SectionHeader title="Recommended" size="sm" />
-            <Rail aria-label="Recommendations" gap="sm">
-              {media.recommendations.slice(0, 12).map((r) => (
-                <div key={r.media.id} className="w-30 shrink-0">
-                  <MediaCard media={r.media} showProgress={false} />
-                </div>
+            {/* Leaning, not railed. "People who liked this" is a shelf you
+                browse rather than a list you work through, and the lean makes
+                the row behave like objects you could pull one out of. */}
+            <LeanRow aria-label="Recommendations" size="sm">
+              {media.recommendations.slice(0, 9).map((r) => (
+                <MediaCard key={r.media.id} media={r.media} showProgress={false} bare />
               ))}
-            </Rail>
+            </LeanRow>
           </Section>
         )}
       </div>

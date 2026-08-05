@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useSearchParams } from 'react-router'
 import { Compass, SearchX } from 'lucide-react'
 import {
+  ArtBand,
   Chip,
   CoverSkeleton,
   EmptyState,
-  Rail,
+  LeanRow,
   SearchInput,
   SegmentedControl,
   Section,
   SectionHeader,
+  ShelfRail,
 } from '@/design'
 import {
   hasFilters,
@@ -238,6 +240,9 @@ export default function DiscoverPage() {
             />
           )}
 
+          {/* Forms alternate deliberately down the page — rail, lean, grid,
+              rail — so no two adjacent sections share a silhouette. This is
+              the whole difference between "a bookshop" and "a feed". */}
           <ReadyToStart kind={kind} />
 
           {affinity[0] && (
@@ -413,7 +418,7 @@ function BecauseLead({
       <FeatureCard media={first} height="lg" layered={rest.slice(0, 3)} />
       {rest.length > 0 && (
         <div className="pt-1">
-          <MediaRail media={rest} />
+          <ShelfBody media={rest} form="rail" />
         </div>
       )}
     </Section>
@@ -438,6 +443,7 @@ function BecauseShelf({
       title={source ? `More Like ${displayTitle(source, language)}` : 'More Like Your Favorites'}
       loading={isLoading}
       media={(data ?? []).map((r) => r.media)}
+      form="lean"
     />
   )
 }
@@ -452,14 +458,29 @@ function ComfortZone({
   score: number | null
 }) {
   const { data, isLoading } = useMediaSearch({ genres: [genre], kind, sort: 'score', perPage: 16 })
+  const media = data?.media ?? []
+
+  // The page's one art-wash band. It sits on the shelf that is *about* the
+  // user's taste rather than about a catalog slice, and it takes its color
+  // from the best title in that genre — so the section is literally tinted by
+  // the thing it is recommending.
+  if (!isLoading && media.length === 0) return null
 
   return (
-    <Shelf
-      title={`Best in ${genre}`}
-      meta={score != null ? `you average ${scoreText(score)}` : undefined}
-      loading={isLoading}
-      media={data?.media ?? []}
-    />
+    <ArtBand src={media[0]?.coverImage} bleed>
+      <Section>
+        <SectionHeader
+          title={`Best in ${genre}`}
+          size="sm"
+          action={
+            score != null ? (
+              <span className="label-cat label-cat-plain">you average {scoreText(score)}</span>
+            ) : undefined
+          }
+        />
+        {isLoading ? <RailSkeleton /> : <ShelfBody media={media} form="lean" />}
+      </Section>
+    </ArtBand>
   )
 }
 
@@ -476,7 +497,9 @@ function HiddenGems({ genre, kind }: { genre: string; kind: MediaKind }) {
     [data],
   )
 
-  return <Shelf title="Hidden Gems" meta={genre.toLowerCase()} loading={isLoading} media={gems} />
+  return (
+    <Shelf title="Hidden Gems" meta={genre.toLowerCase()} loading={isLoading} media={gems} form="grid" />
+  )
 }
 
 function SeasonalShelf({ kind, genre }: { kind: MediaKind; genre?: string }) {
@@ -531,6 +554,7 @@ function ShortEnough({ kind, genre }: { kind: MediaKind; genre?: string }) {
       title="Short Enough to Finish Tonight"
       loading={isLoading}
       media={short.slice(0, 16)}
+      form="lean"
     />
   )
 }
@@ -539,7 +563,7 @@ function ShortEnough({ kind, genre }: { kind: MediaKind; genre?: string }) {
 function DeepCut({ genre, kind }: { genre: string; kind: MediaKind }) {
   const { data, isLoading } = useMediaSearch({ genres: [genre], kind, sort: 'score', perPage: 16 })
 
-  return <Shelf title={`More ${genre}`} loading={isLoading} media={data?.media ?? []} />
+  return <Shelf title={`More ${genre}`} loading={isLoading} media={data?.media ?? []} form="grid" />
 }
 
 /** Your own planning list, surfaced so it stops being a graveyard. */
@@ -567,21 +591,38 @@ function ReadyToStart({ kind }: { kind: MediaKind }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * One shelf: a plain title, an optional word of provenance in the catalog
- * voice, and a rail of covers standing on a hairline. Every section on this
- * page is one of these.
+ * One shelf, in one of three forms.
+ *
+ * Every section on this page used to be the same thing: a title over a rail of
+ * identical 34-wide posters. Nine of those in a column is a feed, and a feed is
+ * exactly what this page is not supposed to be — the brief for Discover is
+ * "walking past differently-arranged tables in a bookshop".
+ *
+ * So a shelf now declares its `form`, and the page alternates:
+ *
+ *   rail   graduated widths on a shelf line — the lead cover is largest, so
+ *          the row has a reading direction instead of being a table
+ *   lean   covers tucked behind each other, spreading on hover
+ *   grid   a staggered wall, for shelves deep enough to browse rather than scan
+ *
+ * The forms are visually distinct at a glance, which is the entire point: you
+ * can tell one section from the next without reading either heading.
  */
+type ShelfForm = 'rail' | 'lean' | 'grid'
+
 function Shelf({
   title,
   meta,
   media,
   loading,
+  form = 'rail',
 }: {
   title: ReactNode
   /** A quiet aside in the catalog voice — a genre, an average. Never a sentence. */
   meta?: string
   media: MediaSummary[]
   loading?: boolean
+  form?: ShelfForm
 }) {
   // A header over an empty rail reads as a bug, not as "nothing matched".
   if (!loading && media.length === 0) return null
@@ -593,21 +634,42 @@ function Shelf({
         size="sm"
         action={meta ? <span className="label-cat label-cat-plain">{meta}</span> : undefined}
       />
-      {loading ? <RailSkeleton /> : <MediaRail media={media} />}
+      {loading ? <RailSkeleton /> : <ShelfBody media={media} form={form} />}
     </Section>
   )
 }
 
-function MediaRail({ media }: { media: MediaSummary[] }) {
+function ShelfBody({ media, form }: { media: MediaSummary[]; form: ShelfForm }) {
   if (media.length === 0) return null
+
+  if (form === 'lean') {
+    // Capped: the lean only reads when the whole row is visible leaning, and
+    // an eight-cover row is already wider than most of the column.
+    return (
+      <LeanRow aria-label="Recommendations" size="md">
+        {media.slice(0, 8).map((m) => (
+          <MediaCard key={m.id} media={m} showProgress={false} bare />
+        ))}
+      </LeanRow>
+    )
+  }
+
+  if (form === 'grid') {
+    return (
+      <div className="poster-grid grid-stagger">
+        {media.slice(0, 12).map((m, i) => (
+          <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <Rail aria-label="Recommendations" gap="sm">
+    <ShelfRail aria-label="Recommendations" size="md" gap="sm">
       {media.map((m, i) => (
-        <div key={m.id} className="w-30 shrink-0 md:w-34">
-          <MediaCard media={m} showProgress={false} index={i} />
-        </div>
+        <MediaCard key={m.id} media={m} showProgress={false} index={i} />
       ))}
-    </Rail>
+    </ShelfRail>
   )
 }
 
@@ -642,14 +704,42 @@ function Grid({ media }: { media: MediaSummary[] }) {
     )
   }
 
+  // Three tiers, not one wall. The ranker already knows which results are
+  // strong and which are the tail, and rendering all of them at identical size
+  // throws that information away — the wall was the same shape whether the
+  // fourth result was a perfect match or a fuzzy guess.
+  const strong = rest.slice(0, 6)
+  const tail = rest.slice(6)
+
   return (
-    <div className="space-y-9">
+    <div className="space-y-10">
       <FeatureCard media={lead} eyebrow="Best match" layered={rest.slice(0, 3)} />
-      <div className="poster-grid grid-stagger">
-        {rest.map((m, i) => (
-          <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
-        ))}
-      </div>
+
+      {strong.length > 0 && (
+        <Section>
+          <SectionHeader title="Also matching" size="sm" bare />
+          <LeanRow aria-label="Strong matches" size="md">
+            {strong.map((m) => (
+              <MediaCard key={m.id} media={m} showProgress={false} bare />
+            ))}
+          </LeanRow>
+        </Section>
+      )}
+
+      {tail.length > 0 && (
+        <Section>
+          <SectionHeader
+            title="Everything else"
+            size="sm"
+            action={<span className="label-cat label-cat-plain">{tail.length} more</span>}
+          />
+          <div className="poster-grid grid-stagger">
+            {tail.map((m, i) => (
+              <MediaCard key={m.id} media={m} showProgress={false} index={i} className="cv-auto" />
+            ))}
+          </div>
+        </Section>
+      )}
     </div>
   )
 }

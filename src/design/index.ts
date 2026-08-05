@@ -31,6 +31,14 @@ export { CoverImage, CoverStack, type CoverImageProps, type CoverStackProps } fr
 export { Avatar, type AvatarProps } from './Avatar'
 export { Rail, type RailProps } from './Rail'
 export {
+  ShelfRail,
+  LeanRow,
+  ArtBand,
+  type ShelfRailProps,
+  type LeanRowProps,
+  type ArtBandProps,
+} from './Shelf'
+export {
   Section,
   SectionHeader,
   Eyebrow,

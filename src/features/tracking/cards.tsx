@@ -247,6 +247,14 @@ export interface MediaCardProps {
   showRank?: boolean
   /** Index in a staggered grid — drives the entrance delay. */
   index?: number
+  /**
+   * Artwork only: no title, no meta line, no progress track.
+   *
+   * For rows where the *shape* is the content — a lean row of overlapping
+   * covers reads as a shelf of spines, and hanging two lines of type under
+   * each one turns it straight back into a list of cards.
+   */
+  bare?: boolean
   className?: string
 }
 
@@ -261,7 +269,14 @@ export interface MediaCardProps {
  * structural decision removes every "it navigated instead of counting" bug the
  * previous version could produce.
  */
-export function MediaCard({ media, showProgress = true, showRank, index, className }: MediaCardProps) {
+export function MediaCard({
+  media,
+  showProgress = true,
+  showRank,
+  index,
+  bare,
+  className,
+}: MediaCardProps) {
   const language = usePrefs((s) => s.titleLanguage)
   const prefetch = usePrefetchMedia()
   const { entry, inLibrary, bump, setProgress, add } = useTracking(media)
@@ -408,18 +423,20 @@ export function MediaCard({ media, showProgress = true, showRank, index, classNa
         </div>
       )}
 
-      <Link
-        to={`/media/${media.id}`}
-        onPointerEnter={() => prefetch(media.id)}
-        className="mt-2.5 block space-y-1 rounded-sm"
-        tabIndex={-1}
-        aria-hidden
-      >
-        <p className="clamp-2 text-label leading-snug font-medium text-ink transition-colors duration-200 group-hover/card:text-accent">
-          {title}
-        </p>
-        <p className="label-cat label-cat-plain truncate">{metaLine(media)}</p>
-      </Link>
+      {!bare && (
+        <Link
+          to={`/media/${media.id}`}
+          onPointerEnter={() => prefetch(media.id)}
+          className="mt-2.5 block space-y-1 rounded-sm"
+          tabIndex={-1}
+          aria-hidden
+        >
+          <p className="clamp-2 text-label leading-snug font-medium text-ink transition-colors duration-200 group-hover/card:text-accent">
+            {title}
+          </p>
+          <p className="label-cat label-cat-plain truncate">{metaLine(media)}</p>
+        </Link>
+      )}
 
       <ContextMenu point={menu.point} onClose={menu.close} label={title}>
         {({ close }) => <MediaMenuContent media={media} close={close} />}
@@ -685,7 +702,7 @@ export function FeatureCard({
   return (
     <article
       className={cn(
-        'group/feature relative isolate overflow-hidden rounded-xl border border-line bg-surface-2',
+        'group/feature sheen relative isolate overflow-hidden rounded-xl border border-line bg-surface-2',
         height === 'lg' ? 'min-h-[21rem]' : 'min-h-[16rem]',
         className,
       )}

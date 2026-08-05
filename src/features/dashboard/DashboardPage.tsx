@@ -10,6 +10,7 @@ import {
   Eyebrow,
   ProgressBar,
   Rail,
+  ShelfRail,
   Rating,
   ScoreHistogram,
   Section,
@@ -199,11 +200,11 @@ export default function DashboardPage() {
       {airing.length > 0 && (
         <Section>
           <SectionHeader title="Airing This Week" size="sm" />
-          <Rail aria-label="Upcoming episodes" gap="sm">
+          <ShelfRail aria-label="Upcoming episodes" size="sm" gap="sm" graduated={false}>
             {airing.map(({ media, airingAt, episode }) => (
               <AiringCard key={media.id} media={media} airingAt={airingAt} episode={episode} />
             ))}
-          </Rail>
+          </ShelfRail>
         </Section>
       )}
 
