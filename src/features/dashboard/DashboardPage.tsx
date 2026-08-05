@@ -32,6 +32,7 @@ import {
   groupByDay,
   useActivity,
   useAllEntries,
+  useCollectionCount,
   useCollectionCoverIds,
   useCollections,
   useContinueList,
@@ -551,6 +552,7 @@ function CollectionStrip({
   map: Map<number, MediaSummary>
 }) {
   const ids = useCollectionCoverIds(collection.id, 4)
+  const count = useCollectionCount(collection.id)
   const covers = ids
     .map((id) => map.get(id))
     .filter(Boolean)
@@ -571,7 +573,7 @@ function CollectionStrip({
         <p className="truncate text-title font-semibold text-ink transition-colors group-hover:text-accent">
           {collection.name}
         </p>
-        <p className="label-cat label-cat-plain mt-2">{pluralize(ids.length, 'title')}</p>
+        <p className="label-cat label-cat-plain mt-2">{pluralize(count, 'title')}</p>
       </div>
 
       <ArrowRight

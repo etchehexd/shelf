@@ -229,6 +229,22 @@ export function useCollectionsContaining(mediaId: number): Collection[] {
 }
 
 /** First four covers, used for a collection card's fanned mosaic. */
+/**
+ * How many titles a collection holds.
+ *
+ * Its own selector, deliberately, and every count in the product must use it.
+ * The Dashboard used to print `useCollectionCoverIds(id, 4).length` — the
+ * length of a list that had been truncated to four *for the cover stack* — so a
+ * five-title collection reported "4 titles". That is the class of bug you get
+ * from deriving a count off a list shaped for something else, and the fix is
+ * not to be careful at each call site but to make the count impossible to
+ * derive that way.
+ */
+export function useCollectionCount(collectionId: string): number {
+  return useLibrary((s) => s.collectionItems.filter((i) => i.collectionId === collectionId).length)
+}
+
+/** Cover art only. Truncated on purpose — never use `.length` as a count. */
 export function useCollectionCoverIds(collectionId: string, limit = 4): number[] {
   return useLibrary(
     useShallow((s) =>
