@@ -1,5 +1,25 @@
 import { useMemo, useState } from 'react'
 import { cn } from '@/lib/cn'
+import { scoreBand } from './Rating'
+
+/**
+ * A bar's color is the band its score belongs to.
+ *
+ * Reuses `scoreBand` rather than re-deriving the thresholds, so the chart
+ * cannot drift out of agreement with the chips on every poster: a column at 8
+ * and an 8.0/10 badge are the same green because they ask the same function.
+ */
+const BAND_FILL: Record<ReturnType<typeof scoreBand>, string> = {
+  '9': 'bg-score-9',
+  '8': 'bg-score-8',
+  '7': 'bg-score-7',
+  '6': 'bg-score-6',
+  '5': 'bg-score-5',
+  '3': 'bg-score-3',
+  '0': 'bg-score-0',
+}
+
+const fill = (score: number): string => BAND_FILL[scoreBand(score)]
 
 /**
  * The shape of your taste.
@@ -14,10 +34,10 @@ import { cn } from '@/lib/cn'
  *
  *  - the axis is the product's own five-star scale, drawn underneath the ten
  *    columns it maps onto, so "8" and "★★★★" are visibly the same statement
- *  - the mean is a hairline standing *in* the plot at its true fractional
- *    position, not a legend entry
- *  - bars carry two levels of ember by band, so the mass of the distribution
- *    reads before any individual column does
+ *  - bars are colored by the score band they represent — the same seven-step
+ *    ramp the community chips use — so the shape of the distribution and its
+ *    quality read in the same glance
+ *  - the mean is a word in the footer, not a hairline through the plot
  *  - no gridlines, no tick marks, no boxed frame; the baseline rule is the
  *    only structure, which is how every other section on the page is built
  */
@@ -57,7 +77,6 @@ export function ScoreHistogram({
   if (total === 0) return null
 
   const shown = hover ?? peak
-  const fill = art ? 'bg-art' : 'bg-accent'
 
   return (
     <div className={cn('min-w-0 max-w-xl', className)}>
@@ -82,26 +101,12 @@ export function ScoreHistogram({
         )}
       </div>
 
+      {/* No average line. It stood *in* the plot, so it cut whichever column it
+          landed on in half and its label covered the two beside it — a
+          hairline plus a chip of chrome obscuring the exact bars the chart
+          exists to show. The footer already prints the same reading in words,
+          which is where a summary of a picture belongs. */}
       <div className="relative" style={{ height }} onPointerLeave={() => setHover(null)}>
-        {/* The mean, standing in the plot at its fractional position. */}
-        {mean != null && (
-          <div
-            className="pointer-events-none absolute inset-y-0 z-10 w-px"
-            style={{ left: `${((mean - 0.5) / 10) * 100}%` }}
-            aria-hidden
-          >
-            <div className="h-full w-px bg-ink/25" />
-            <span
-              className={cn(
-                'font-mono-num absolute -top-0.5 left-1.5 rounded-[4px] px-1 py-px text-[0.5625rem] font-semibold whitespace-nowrap',
-                'bg-ink text-ink-inverse',
-              )}
-            >
-              avg {mean.toFixed(1)}
-            </span>
-          </div>
-        )}
-
         <div className="flex h-full items-end gap-1 md:gap-1.5">
           {distribution.map((count, i) => {
             const empty = count === 0
@@ -118,7 +123,8 @@ export function ScoreHistogram({
               >
                 <span
                   className={cn(
-                    'w-full rounded-t-[3px] transition-[height,opacity,background-color]',
+                    'w-full origin-bottom rounded-t-[3px]',
+                    'transition-[height,opacity,background-color,transform]',
                     'duration-[700ms] ease-[var(--ease-out-expo)]',
                     // Each branch names exactly one background and one opacity.
                     // Layering an `active &&` override on top would put two
@@ -130,12 +136,12 @@ export function ScoreHistogram({
                         ? 'bg-ink-3/30 opacity-100'
                         : 'bg-ink-3/15 opacity-100'
                       : cn(
-                          fill,
-                          active || i + 1 >= 8
-                            ? 'opacity-100'
-                            : i + 1 >= 5
-                              ? 'opacity-70'
-                              : 'opacity-45',
+                          // The bar for "rated 8" is the same color as an 8.0
+                          // community chip. Two different color languages for
+                          // the same 0–10 scale on the same page is what made
+                          // this chart read as decoration rather than as data.
+                          fill(i + 1),
+                          active ? 'opacity-100 scale-x-105' : 'opacity-85',
                         ),
                   )}
                   style={{ height: empty ? 3 : `${Math.max(6, (count / max) * 100)}%` }}

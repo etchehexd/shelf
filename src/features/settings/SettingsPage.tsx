@@ -12,6 +12,8 @@ import {
   SectionHeader,
   Switch,
   toast,
+  PALETTES,
+  type PaletteId,
 } from '@/design'
 import { useAuth } from '@/data/supabase/auth'
 import { useLibrary } from '@/data/store/library'
@@ -168,6 +170,14 @@ export default function SettingsPage() {
                 { value: 'system', label: 'System' },
               ]}
             />
+          </SettingRow>
+
+          {/* Swatches, not a dropdown of words. "Plum" and "Rose" are the same
+              string to anyone choosing a color, and the point of the control
+              is the color. Picking one repaints immediately — there is no
+              Apply, because the page in front of you *is* the preview. */}
+          <SettingRow label="Accent" description="The color the whole app is painted in.">
+            <PaletteChoice value={prefs.palette} onChange={prefs.setPalette} />
           </SettingRow>
 
           <SettingRow label="Title language" description="Which title to show first.">
@@ -363,6 +373,61 @@ function SettingRow({
         {description && <p className="mt-0.5 text-meta text-ink-2">{description}</p>}
       </div>
       <div className="shrink-0">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * The accent picker: seven circles in a row.
+ *
+ * A radiogroup rather than a menu, because every option fits on screen and
+ * hiding six colors behind a seventh defeats the purpose of choosing by eye.
+ * Arrow keys move between them, which is what a radiogroup gets for free and a
+ * row of buttons does not.
+ */
+function PaletteChoice({
+  value,
+  onChange,
+}: {
+  value: PaletteId
+  onChange: (next: PaletteId) => void
+}) {
+  return (
+    <div role="radiogroup" aria-label="Accent color" className="flex items-center gap-2">
+      {PALETTES.map((p) => {
+        const active = p.id === value
+        return (
+          <button
+            key={p.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={p.label}
+            title={p.label}
+            onClick={() => onChange(p.id)}
+            className={cn(
+              'relative size-7 rounded-full transition-transform duration-200 ease-[var(--ease-spring)]',
+              'hover:scale-115 focus-visible:scale-115',
+              active && 'scale-110',
+            )}
+          >
+            <span
+              className="absolute inset-0 rounded-full shadow-xs"
+              style={{ background: p.swatch }}
+              aria-hidden
+            />
+            {/* The ring sits outside the swatch rather than on it, so the
+                selected color is never partly covered by its own indicator. */}
+            <span
+              className={cn(
+                'absolute -inset-1 rounded-full border-2 transition-opacity duration-200',
+                active ? 'border-ink opacity-100' : 'border-transparent opacity-0',
+              )}
+              aria-hidden
+            />
+          </button>
+        )
+      })}
     </div>
   )
 }

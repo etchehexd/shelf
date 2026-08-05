@@ -355,7 +355,11 @@ function InProgressBand({
   const wash = items[0]?.media
 
   return (
-    <section className="relative isolate overflow-hidden rounded-xl border border-line bg-surface-2/70 px-6 pt-6 pb-7">
+    /* Roughly a third shorter than it was. This band is a *reminder* of what
+       you are mid-way through, not the page — at its old size it pushed the
+       shelves it sits above off a laptop screen entirely, so the Library
+       opened on a summary of itself. */
+    <section className="relative isolate overflow-hidden rounded-xl border border-line bg-surface-2/70 px-5 pt-4 pb-5">
       {/* The page takes its color from whatever you touched last. */}
       {wash?.coverImage && (
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
@@ -364,7 +368,7 @@ function InProgressBand({
         </div>
       )}
 
-      <div className="mb-5 flex items-center gap-4">
+      <div className="mb-3.5 flex items-center gap-4">
         <Eyebrow>{statusLabel('current', kind)} now</Eyebrow>
         <span className="h-px flex-1 bg-line" aria-hidden />
         <Link to="?status=current" className="label-cat label-cat-plain hover:text-ink">
@@ -372,7 +376,7 @@ function InProgressBand({
         </Link>
       </div>
 
-      <ol className="no-scrollbar flex items-end gap-5 overflow-x-auto pb-1">
+      <ol className="no-scrollbar flex items-end gap-4 overflow-x-auto pb-1">
         {items.map(({ media, entry }, i) => {
           const unitTotal = totalUnits(media)
           const pct = unitTotal ? Math.round((entry.progress / unitTotal) * 100) : null
@@ -386,7 +390,7 @@ function InProgressBand({
               >
                 {/* The first one is the biggest: it is almost always the thing
                     you opened the app to continue. */}
-                <div className={i === 0 ? 'w-32 md:w-40' : 'w-24 md:w-28'}>
+                <div className={i === 0 ? 'w-24 md:w-28' : 'w-18 md:w-21'}>
                   <CoverImage src={media.coverImage} alt="" color={media.color}>
                     <span className="absolute top-1.5 left-1.5 z-10">
                       <CommunityScore value={media.averageScore} variant="badge" size="sm" />
@@ -414,7 +418,7 @@ function InProgressBand({
         })}
       </ol>
 
-      {total > 0 && <StatusRibbon counts={counts} kind={kind} className="mt-7" />}
+      {total > 0 && <StatusRibbon counts={counts} kind={kind} className="mt-5" />}
     </section>
   )
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { applyTheme, systemTheme } from '@/design/theme'
+import { applyPalette, applyTheme, systemTheme, type PaletteId } from '@/design/theme'
 import type { TitleLanguage } from '@/data/anilist/normalize'
 import type { MediaKind } from '@/data/anilist/types'
 
@@ -11,6 +11,8 @@ export type LibrarySort = 'updated' | 'title' | 'score' | 'progress' | 'added'
 
 interface PrefsState {
   theme: ThemeSetting
+  /** The accent color the whole product is painted in. */
+  palette: PaletteId
   titleLanguage: TitleLanguage
   defaultView: ViewMode
   librarySort: LibrarySort
@@ -21,6 +23,7 @@ interface PrefsState {
   railCollapsed: boolean
 
   setTheme: (theme: ThemeSetting) => void
+  setPalette: (palette: PaletteId) => void
   setTitleLanguage: (language: TitleLanguage) => void
   setDefaultView: (view: ViewMode) => void
   setLibrarySort: (sort: LibrarySort) => void
@@ -39,6 +42,7 @@ export const usePrefs = create<PrefsState>()(
   persist(
     (set) => ({
       theme: 'system',
+      palette: 'ember',
       titleLanguage: 'english',
       // Shelves, not a grid: the library should look like a bookcase the first
       // time you open it.
@@ -51,6 +55,10 @@ export const usePrefs = create<PrefsState>()(
       setTheme: (theme) => {
         set({ theme })
         applyTheme(theme === 'system' ? systemTheme() : theme)
+      },
+      setPalette: (palette) => {
+        set({ palette })
+        applyPalette(palette)
       },
       setTitleLanguage: (titleLanguage) => set({ titleLanguage }),
       setDefaultView: (defaultView) => set({ defaultView }),
@@ -77,7 +85,9 @@ export const usePrefs = create<PrefsState>()(
       onRehydrateStorage: () => (state) => {
         // Re-apply after rehydration in case the inline script guessed 'system'
         // and the stored value is explicit.
-        if (state) applyTheme(state.theme === 'system' ? systemTheme() : state.theme)
+        if (!state) return
+        applyTheme(state.theme === 'system' ? systemTheme() : state.theme)
+        applyPalette(state.palette ?? 'ember')
       },
     },
   ),

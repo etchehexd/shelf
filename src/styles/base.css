@@ -486,11 +486,181 @@
   .rise-in {
     animation: rise-in 520ms var(--ease-out-expo) both;
   }
+
+  /* ------------------------------------------------------------- reactions --
+     Named for what happened, not for what they look like, so a call site reads
+     as intent: `act-added`, not `act-scale-bounce`. All of them are wrapped in
+     motion-safe by the reduced-motion block at the bottom of this file. */
+  .act-added {
+    animation: pop-add 420ms var(--ease-spring) both;
+  }
+
+  .act-tick {
+    animation: tick-up 320ms var(--ease-spring);
+  }
+
+  .act-stamp {
+    animation: stamp 460ms var(--ease-spring) both;
+  }
+
+  .act-nope {
+    animation: nope 320ms ease-in-out;
+  }
+
+  .act-squish {
+    animation: squish 300ms var(--ease-spring);
+  }
+
+  .act-thump {
+    animation: thump 460ms var(--ease-spring);
+  }
+
+  /* ------------------------------------------------------------- pressable --
+     Every control that performs an action, not just navigates. The scale is
+     tiny on purpose: the point is that the surface acknowledges the press at
+     all, which is the difference between a button and a rectangle. */
+  .pressable {
+    transition: transform 140ms var(--ease-out-soft);
+  }
+
+  .pressable:active {
+    transform: scale(0.94);
+  }
+
+  /* ----------------------------------------------------------------- sheen --
+     A slow diagonal highlight that crosses a card once on hover. Used on the
+     few large surfaces — the feature card, the podium — where a lift alone
+     isn't enough to make something the size of a poster feel alive. */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      100deg,
+      transparent 35%,
+      rgb(255 255 255 / 0.16) 50%,
+      transparent 65%
+    );
+    transform: translateX(-120%);
+    transition: transform 900ms var(--ease-out-expo);
+  }
+
+  .sheen:hover::after,
+  .group:hover .sheen::after {
+    transform: translateX(120%);
+  }
 }
+
+/* ---------------------------------------------------------------------------
+ * Motion for actions.
+ *
+ * The complaint this answers is that the product looked *solid* — every state
+ * change was a repaint with no moment in between, so nothing you did felt like
+ * it landed. These are the reactions: small, physical, and attached to specific
+ * acts rather than sprinkled on surfaces. Nothing here loops, nothing here is
+ * decorative, and every one of them is under 600ms.
+ * ------------------------------------------------------------------------- */
 
 @keyframes shimmer {
   to {
     background-position: -200% 0;
+  }
+}
+
+/* A thing was added. Overshoots, settles. Used by the ＋ on a poster and by
+   anything that appears as the direct result of a click. */
+@keyframes pop-add {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* A count went up. A short hop, so a stepper reads as a tally rather than as
+   a text field whose contents silently changed. */
+@keyframes tick-up {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Something was confirmed — a check landing. */
+@keyframes stamp {
+  0% {
+    transform: scale(0.4) rotate(-12deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15) rotate(3deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* A refusal. Two small shakes, never more — the third reads as an error page. */
+@keyframes nope {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+/* A pill or chip becoming active. Squashes on the way in like a real button. */
+@keyframes squish {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.92, 1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* The favorite heart. Beats once, hard. */
+@keyframes thump {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.35);
+  }
+  55% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 

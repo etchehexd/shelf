@@ -21,7 +21,6 @@ import { Check, GripVertical, Plus, Search, Trophy, X } from 'lucide-react'
 import {
   Button,
   buttonClasses,
-  CommunityScore,
   CoverImage,
   Dialog,
   EmptyState,
@@ -307,8 +306,20 @@ function Podium({
   // Visual order puts the winner in the middle on wide screens — the shape of a
   // podium — but the DOM order stays 1, 2, 3 for anyone not looking at it.
   const order = ['md:order-2', 'md:order-1', 'md:order-3']
-  const heights = ['md:pb-0', 'md:pb-10', 'md:pb-16']
-  const widths = ['w-36 md:w-52', 'w-28 md:w-40', 'w-28 md:w-40']
+  const heights = ['md:pb-0', 'md:pb-8', 'md:pb-12']
+
+  // Roughly a third smaller than it was. The section was eating the fold on a
+  // laptop and pushing the list — the part you came to *use* — off screen, so
+  // the page opened on a trophy cabinet instead of on your ranking. Prominence
+  // is doing the same job now through the ring, the medal and the plinth glow
+  // rather than through sheer size, which is cheaper and reads faster.
+  const widths = ['w-24 md:w-32', 'w-20 md:w-26', 'w-20 md:w-26']
+
+  const medals = [
+    'from-[#f5c451] to-[#c9922a] text-[#3a2a06]',
+    'from-[#d8d8dc] to-[#a8a8ae] text-[#2a2a2e]',
+    'from-[#dda36a] to-[#a9713d] text-[#341f0c]',
+  ]
 
   return (
     <section className="relative isolate overflow-hidden rounded-xl border border-line bg-surface-2/60 px-6 pt-8 pb-9 md:px-10">
@@ -331,34 +342,51 @@ function Podium({
                 className="group/plinth frame-lift block"
                 title={displayTitle(m, language)}
               >
-                {/* The numeral sits behind the poster, bleeding off its edge —
-                    a plaque on the wall, not a badge on the artwork. */}
+                {/* The plinth: a soft pool of accent under the artwork that
+                    swells on hover. Smaller posters needed something holding
+                    them up, and a glow reads as light on a stage rather than
+                    as another box. */}
                 <span
                   className={cn(
-                    'font-mono-num pointer-events-none absolute -top-4 -left-5 -z-10 leading-[0.7]',
-                    'font-semibold tabular-nums select-none',
-                    'text-ink-3/25 transition-colors duration-500 group-hover/plinth:text-accent/45',
-                    i === 0 ? 'text-[7rem] md:text-[9rem]' : 'text-[5rem] md:text-[6.5rem]',
+                    'pointer-events-none absolute inset-x-0 -bottom-3 -z-10 mx-auto h-8 rounded-[50%] blur-lg',
+                    'transition-[opacity,transform] duration-500 ease-[var(--ease-out-expo)]',
+                    'bg-accent/35 opacity-70 group-hover/plinth:scale-110 group-hover/plinth:opacity-100',
+                    i === 0 ? 'w-28 md:w-36' : 'w-20 md:w-24',
+                  )}
+                  aria-hidden
+                />
+
+                <div className={cn(widths[i], i === 0 && 'ring-2 ring-accent/70 ring-offset-2 ring-offset-canvas rounded-[3px]')}>
+                  <CoverImage src={m.coverImageLarge ?? m.coverImage} alt="" color={m.color} />
+                </div>
+
+                {/* The medal replaces the giant ghost numeral. It states the
+                    position in a fraction of the space, and gold/silver/bronze
+                    is a rank people read without being told it is one. */}
+                <span
+                  className={cn(
+                    'font-mono-num absolute -top-2.5 -left-2.5 flex items-center justify-center rounded-full',
+                    'bg-gradient-to-br font-bold shadow-md tabular-nums',
+                    'transition-transform duration-300 ease-[var(--ease-spring)] group-hover/plinth:scale-115',
+                    medals[i],
+                    i === 0 ? 'size-9 text-title' : 'size-7 text-meta',
                   )}
                   aria-hidden
                 >
                   {i + 1}
                 </span>
-
-                <div className={widths[i]}>
-                  <CoverImage src={m.coverImageLarge ?? m.coverImage} alt="" color={m.color}>
-                    <span className="absolute top-1.5 left-1.5 z-10">
-                      <CommunityScore value={m.averageScore} variant="badge" size="sm" />
-                    </span>
-                  </CoverImage>
-                </div>
               </Link>
 
-              <div className={cn('mt-3.5', widths[i])}>
-                <p className="clamp-2 text-label leading-snug font-medium text-ink">
+              <div className={cn('mt-3', widths[i])}>
+                <p
+                  className={cn(
+                    'clamp-2 leading-snug font-medium text-ink',
+                    i === 0 ? 'text-label' : 'text-meta',
+                  )}
+                >
                   {displayTitle(m, language)}
                 </p>
-                {entry?.score != null && <Rating value={entry.score} size="xs" className="mt-2" />}
+                {entry?.score != null && <Rating value={entry.score} size="xs" className="mt-1.5" />}
               </div>
             </li>
           )
@@ -438,9 +466,10 @@ function RankRow({
 
       <Rating value={entry?.score ?? null} size="xs" className="hidden shrink-0 sm:inline-flex" />
 
-      <span className="hidden shrink-0 md:block">
-        <CommunityScore value={media?.averageScore} variant="pill" size="sm" />
-      </span>
+      {/* No community score anywhere on this page. A ranking is the one screen
+          in the product that is purely your own judgment — putting the crowd's
+          number next to your #3 invites you to reconcile the two, which is
+          precisely the thing this page exists to let you ignore. */}
 
       {/* Keyboard- and click-reachable jump to the top, because dragging item
           #90 to #1 with a mouse is a minute of scrolling. */}

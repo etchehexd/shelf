@@ -1,0 +1,160 @@
+/* ---------------------------------------------------------------------------
+ * Palettes.
+ *
+ * One attribute on <html> — `data-palette` — repaints the whole product. Every
+ * palette overrides the same six accent variables and nothing else, so a new
+ * one is six values and cannot break a layout, a contrast ratio somewhere
+ * unrelated, or the score ramp (which is data, not decoration, and is
+ * deliberately immune to this).
+ *
+ * The variables sit *after* tokens.css in the cascade and are scoped by
+ * attribute, so the default ember stack in tokens.css is simply what you get
+ * when no palette is set. Light and dark are declared separately for each,
+ * because an accent that reads as confident on warm paper reads as neon on
+ * charcoal and vice versa.
+ *
+ *   --accent        the color itself
+ *   --accent-hover  one step deeper (light) or brighter (dark)
+ *   --accent-quiet  the wash behind selected chips and quiet panels
+ *   --accent-line   the hairline on a selected border
+ *   --accent-ink    text that sits *on* a solid accent fill
+ * ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------- ember --
+   The default. Declared here too so switching back to it is the same
+   mechanism as switching to anything else. */
+[data-palette='ember'] {
+  --accent: #b0541f;
+  --accent-hover: #94441a;
+  --accent-quiet: #f6e8dc;
+  --accent-line: #e3c8ad;
+  --accent-ink: #fffdfa;
+}
+
+[data-theme='dark'][data-palette='ember'] {
+  --accent: #e39a55;
+  --accent-hover: #f0af6f;
+  --accent-quiet: #2a2018;
+  --accent-line: #4a3826;
+  --accent-ink: #1a1209;
+}
+
+/* ------------------------------------------------------------------ ink --
+   Near-black on paper, near-white on charcoal. For anyone who wants the
+   artwork to be the only color in the room. */
+[data-palette='ink'] {
+  --accent: #2f2a24;
+  --accent-hover: #17140f;
+  --accent-quiet: #eae5db;
+  --accent-line: #cdc5b6;
+  --accent-ink: #fbfaf8;
+}
+
+[data-theme='dark'][data-palette='ink'] {
+  --accent: #ece6dc;
+  --accent-hover: #ffffff;
+  --accent-quiet: #262220;
+  --accent-line: #443e38;
+  --accent-ink: #16130f;
+}
+
+/* ---------------------------------------------------------------- forest -- */
+[data-palette='forest'] {
+  --accent: #2f6b46;
+  --accent-hover: #245537;
+  --accent-quiet: #e0ece3;
+  --accent-line: #b6d2c0;
+  --accent-ink: #fbfefb;
+}
+
+[data-theme='dark'][data-palette='forest'] {
+  --accent: #5fbd88;
+  --accent-hover: #7ad2a0;
+  --accent-quiet: #17231c;
+  --accent-line: #2c4636;
+  --accent-ink: #08160e;
+}
+
+/* ------------------------------------------------------------------ sea -- */
+[data-palette='sea'] {
+  --accent: #1f6183;
+  --accent-hover: #174c68;
+  --accent-quiet: #dfebf2;
+  --accent-line: #b2cfdd;
+  --accent-ink: #fbfdff;
+}
+
+[data-theme='dark'][data-palette='sea'] {
+  --accent: #56aed6;
+  --accent-hover: #74c3e6;
+  --accent-quiet: #15212a;
+  --accent-line: #2a4351;
+  --accent-ink: #06141c;
+}
+
+/* ----------------------------------------------------------------- plum -- */
+[data-palette='plum'] {
+  --accent: #6a3f86;
+  --accent-hover: #55306c;
+  --accent-quiet: #ece3f2;
+  --accent-line: #cfbcdd;
+  --accent-ink: #fdfbff;
+}
+
+[data-theme='dark'][data-palette='plum'] {
+  --accent: #b287d8;
+  --accent-hover: #c6a1e8;
+  --accent-quiet: #211a2a;
+  --accent-line: #3d3050;
+  --accent-ink: #14091d;
+}
+
+/* ----------------------------------------------------------------- rose -- */
+[data-palette='rose'] {
+  --accent: #a83a5b;
+  --accent-hover: #8c2c49;
+  --accent-quiet: #f6e3e9;
+  --accent-line: #e2bccb;
+  --accent-ink: #fffafb;
+}
+
+[data-theme='dark'][data-palette='rose'] {
+  --accent: #e8809f;
+  --accent-hover: #f39ab5;
+  --accent-quiet: #2a1a20;
+  --accent-line: #4c2c37;
+  --accent-ink: #1c0810;
+}
+
+/* ---------------------------------------------------------------- citrus -- */
+[data-palette='citrus'] {
+  --accent: #97701a;
+  --accent-hover: #7c5b12;
+  --accent-quiet: #f4ecd6;
+  --accent-line: #ddcb9f;
+  --accent-ink: #fffdf6;
+}
+
+[data-theme='dark'][data-palette='citrus'] {
+  --accent: #dfb63f;
+  --accent-hover: #efc95d;
+  --accent-quiet: #262015;
+  --accent-line: #463c22;
+  --accent-ink: #1a1305;
+}
+
+/**
+ * Repainting is animated, once, at the root.
+ *
+ * Without this a palette change is a hard cut across every surface at the same
+ * instant, which reads as a glitch rather than as a choice. 260ms on color
+ * alone is long enough to see it happen and short enough that it never gets in
+ * the way of a click.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    transition:
+      background-color 260ms var(--ease-out-soft),
+      color 260ms var(--ease-out-soft);
+  }
+}

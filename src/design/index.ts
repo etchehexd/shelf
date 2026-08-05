@@ -68,4 +68,11 @@ export {
   type Align,
 } from './hooks'
 
-export { useResolvedTheme, applyTheme, systemTheme } from './theme'
+export {
+  useResolvedTheme,
+  applyTheme,
+  applyPalette,
+  systemTheme,
+  PALETTES,
+  type PaletteId,
+} from './theme'

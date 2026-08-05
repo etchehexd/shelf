@@ -7,8 +7,13 @@ type Size = 'sm' | 'md' | 'lg'
 
 const BASE =
   'relative inline-flex select-none items-center justify-center gap-2 rounded-md font-medium ' +
-  'transition-[background-color,border-color,color,transform,box-shadow] duration-[110ms] ease-out ' +
-  'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45'
+  'transition-[background-color,border-color,color,transform,box-shadow] duration-[140ms] ' +
+  'ease-[var(--ease-out-soft)] ' +
+  // A firmer press than the old 0.98. At two percent the feedback is
+  // technically present and perceptually absent, which is the worst of both —
+  // it costs the same and reads as nothing.
+  'active:scale-[0.955] hover:-translate-y-px active:translate-y-0 ' +
+  'disabled:pointer-events-none disabled:opacity-45 disabled:hover:translate-y-0'
 
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-accent text-accent-ink hover:bg-accent-hover shadow-sm',

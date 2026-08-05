@@ -1,4 +1,7 @@
 @import 'tailwindcss';
 @import './fonts.css';
 @import './tokens.css';
+/* After tokens: a palette overrides the accent variables tokens.css declares,
+   so the default ember stack is simply "no palette set". */
+@import './palettes.css';
 @import './base.css';

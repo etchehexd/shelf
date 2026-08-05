@@ -214,13 +214,24 @@ function PosterProgress({ media }: { media: MediaSummary }) {
         </button>
       )}
 
+      {/* Keyed on `progress` so the icon re-mounts and replays its reaction on
+          every tick: the ＋ hops, and the moment it becomes a tick on the last
+          episode the check stamps itself down. This is the single most-repeated
+          action in the product and it used to be a silent repaint. */}
       <IconButton
+        key={progress}
         label={atEnd ? 'Finished' : `${unitName(media.kind)} ${progress + 1}`}
-        icon={atEnd ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
+        icon={
+          atEnd ? (
+            <Check className="size-3.5 motion-safe:animate-[stamp_460ms_var(--ease-spring)]" />
+          ) : (
+            <Plus className="size-3.5 motion-safe:animate-[tick-up_320ms_var(--ease-spring)]" />
+          )
+        }
         variant={atEnd ? 'ghost' : 'primary'}
         size="sm"
         disabled={atEnd}
-        className={cn('rounded-full', atEnd && 'text-watching opacity-100')}
+        className={cn('pressable rounded-full', atEnd && 'text-watching opacity-100')}
         onClick={bump}
       />
     </div>
@@ -378,7 +389,7 @@ export function MediaCard({ media, showProgress = true, showRank, index, classNa
                     icon={<Plus className="size-3.5" />}
                     variant="primary"
                     size="sm"
-                    className="rounded-full shadow-sm"
+                    className="pressable rounded-full shadow-sm"
                     onClick={() => add()}
                   />
                 </Tooltip>
@@ -489,12 +500,35 @@ export function MediaRow({
         </div>
       )}
 
-      <div className="hidden w-24 shrink-0 justify-end sm:flex">
-        <Rating value={entry?.score ?? null} size="xs" />
+      {/* The two scores, captioned.
+          Side by side and unlabelled, a row of stars and a colored chip are
+          just two things in the same gutter — you have to already know the
+          product to know which is whose. Two words fixes it permanently, and
+          they are the only two words on the row, so it costs nothing.
+
+          "Yours" is also drawn on a quiet plate and the community chip is not:
+          different shape, different color, different ground, different
+          caption. There is no glance at which they look alike. */}
+      <div className="hidden w-24 shrink-0 flex-col items-end gap-1 sm:flex">
+        <span className="text-[0.5rem] font-semibold tracking-[0.16em] text-ink-3/70 uppercase">
+          Yours
+        </span>
+        {entry?.score != null ? (
+          <Rating value={entry.score} size="xs" />
+        ) : (
+          <span className="text-[0.625rem] text-ink-3/50">not rated</span>
+        )}
       </div>
 
-      <div className="hidden w-14 shrink-0 justify-end lg:flex">
-        <CommunityScore value={media.averageScore} variant="pill" size="sm" />
+      <div className="hidden w-16 shrink-0 flex-col items-end gap-1 lg:flex">
+        <span className="text-[0.5rem] font-semibold tracking-[0.16em] text-ink-3/70 uppercase">
+          Everyone
+        </span>
+        {media.averageScore != null ? (
+          <CommunityScore value={media.averageScore} variant="badge" size="sm" />
+        ) : (
+          <span className="text-[0.625rem] text-ink-3/50">—</span>
+        )}
       </div>
 
       <span className="font-mono-num hidden w-8 shrink-0 text-right text-[0.625rem] text-ink-3 lg:block">

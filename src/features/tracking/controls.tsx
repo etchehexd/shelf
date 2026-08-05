@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   BookmarkPlus,
   Check,
@@ -9,9 +9,12 @@ import {
   Heart,
   Lock,
   Plus,
+  Scale,
+  Trophy,
 } from 'lucide-react'
 import {
   Button,
+  CoverImage,
   Dialog,
   Eyebrow,
   Field,
@@ -32,11 +35,12 @@ import { useLibrary } from '@/data/store/library'
 import { useCollections, useCollectionsContaining, useRank, useRankedIds } from '@/data/store/selectors'
 import { STATUS_ORDER, canRate, statusLabel, type EntryStatus } from '@/data/store/types'
 import { totalUnits, unitName, type MediaKind, type MediaSummary } from '@/data/anilist/types'
-import { useMediaSummary } from '@/data/anilist/hooks'
+import { useMediaMap } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
 import { usePrefs } from '@/data/store/prefs'
 import { useAuth } from '@/data/supabase/auth'
 import { requireSignIn } from '@/features/auth/gate'
+import { PlacementDuel } from '@/features/rankings/PlacementDuel'
 import { useTracking } from './useTracking'
 
 const STATUS_ICON: Record<EntryStatus, typeof CircleDot> = {
@@ -268,6 +272,26 @@ export function RateButton({
  * The dialog shows the current top so choosing a position is a judgment about
  * neighbors rather than an abstract number.
  */
+/**
+ * Ranking one title, without arithmetic.
+ *
+ * This dialog used to be a number field. It asked "what position is this?",
+ * which is a question nobody can answer about their own taste — you know that
+ * a show beats Frieren and loses to Hunter x Hunter, you do not know that it
+ * is eleventh. Typing 11 is a guess, and the list you were guessing against
+ * was a five-row preview you could not touch.
+ *
+ * So there are two ways in and both are direct:
+ *
+ *   compare   the head-to-head duel, which finds the exact slot in a handful
+ *             of "this or that" questions
+ *   place     an interactive list of your order with a real gap between every
+ *             pair — click the gap and it goes there
+ *
+ * The gaps are the important half. They turn an abstract thing ("position 11")
+ * into a physical one ("between these two"), which is what makes this a place
+ * you can look at your ranking and move something rather than a form.
+ */
 export function RankDialog({
   media,
   open,
@@ -282,25 +306,40 @@ export function RankDialog({
   const moveRank = useLibrary((s) => s.moveRank)
   const removeRank = useLibrary((s) => s.removeRank)
   const entries = useLibrary((s) => s.entries)
+  const language = usePrefs((s) => s.titleLanguage)
 
   const { canWrite } = useAuth()
+  const [dueling, setDueling] = useState(false)
 
-  const [target, setTarget] = useState(String(currentRank ?? 1))
+  // The order with this title taken out — the same field the duel searches, so
+  // both routes are placing into an identical list.
+  const field = useMemo(() => rankedIds.filter((id) => id !== media.id), [rankedIds, media.id])
+  const { map } = useMediaMap(field)
 
-  const listLength = rankedIds.length + (currentRank ? 0 : 1)
-
-  const commit = () => {
+  const place = (index: number) => {
     if (!canWrite) {
       onClose()
       requireSignIn('rank what you have watched')
       return
     }
-    const parsed = Number.parseInt(target, 10)
-    if (Number.isNaN(parsed)) return onClose()
-    const index = Math.max(0, Math.min(listLength - 1, parsed - 1))
     moveRank(media.kind, media.id, index)
     toast({ message: `Ranked ${ordinal(index + 1)} in your ${media.kind}` })
     onClose()
+  }
+
+  if (dueling) {
+    return (
+      <PlacementDuel
+        challenger={media}
+        kind={media.kind}
+        open={open}
+        onClose={() => {
+          setDueling(false)
+          onClose()
+        }}
+        resolve={(id) => map.get(id)}
+      />
+    )
   }
 
   return (
@@ -309,7 +348,7 @@ export function RankDialog({
       onClose={onClose}
       title="Ranking"
       description="Independent of your score — you can have a dozen 10s and still know which one is first."
-      size="sm"
+      size="md"
       footer={
         <>
           {currentRank && (
@@ -319,6 +358,7 @@ export function RankDialog({
               className="mr-auto"
               onClick={() => {
                 removeRank(media.kind, media.id)
+                toast({ message: 'Taken out of your ranking' })
                 onClose()
               }}
             >
@@ -326,51 +366,81 @@ export function RankDialog({
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" size="sm" onClick={commit}>
-            Save
+            Done
           </Button>
         </>
       }
     >
       <div className="space-y-5">
-        <Field label="Position" hint={`1 – ${listLength}`}>
-          {(props) => (
-            <Input
-              {...props}
-              data-autofocus
-              type="number"
-              min={1}
-              max={listLength}
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && commit()}
-              className="font-mono-num w-28"
-            />
-          )}
-        </Field>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface-2/60 p-3">
+          <span className="flex items-center gap-2.5">
+            <Trophy className="size-4 shrink-0 text-accent" aria-hidden />
+            <span className="text-label text-ink">
+              {currentRank ? (
+                <>
+                  Currently <span className="font-semibold">{ordinal(currentRank)}</span>
+                </>
+              ) : (
+                'Not in your ranking yet'
+              )}
+            </span>
+          </span>
 
-        {rankedIds.length > 0 && (
+          {field.length > 0 && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Scale className="size-4" />}
+              onClick={() => setDueling(true)}
+            >
+              Compare head-to-head
+            </Button>
+          )}
+        </div>
+
+        {field.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-body text-ink-2">Nothing else is ranked yet.</p>
+            <Button variant="primary" size="sm" className="mt-4" onClick={() => place(0)}>
+              Make it first
+            </Button>
+          </div>
+        ) : (
           <div>
-            <Eyebrow className="mb-3">Current top</Eyebrow>
-            <ol className="space-y-1.5">
-              {rankedIds.slice(0, 5).map((id, i) => (
-                <li key={id} className="flex items-center gap-3 text-label text-ink-2">
-                  <span className="font-mono-num w-5 shrink-0 text-right text-meta text-ink-3">
-                    {i + 1}
-                  </span>
-                  <RankRowTitle mediaId={id} highlight={id === media.id} />
-                  {/* Stars, not the numeral. A bare grey number here is the
-                      one place your score was still drawn like everyone
-                      else's, and two scoring languages in one product is
-                      exactly the confusion the star treatment exists to
-                      prevent. */}
-                  {entries[id]?.score != null && (
-                    <Rating value={entries[id].score} size="xs" className="ml-auto shrink-0" />
-                  )}
-                </li>
-              ))}
+            <Eyebrow className="mb-3">Or drop it into the order</Eyebrow>
+
+            {/* Slot, row, slot, row… Every gap is a button. The list scrolls
+                rather than growing the dialog: a 200-title ranking should not
+                have to be scrolled past to reach the footer, and at that length
+                the duel is the right tool anyway. */}
+            <ol className="max-h-[46vh] overflow-y-auto overscroll-contain pr-1">
+              {field.map((id, i) => {
+                const m = map.get(id)
+                return (
+                  <li key={id}>
+                    <Slot index={i} onClick={() => place(i)} />
+                    <div className="flex items-center gap-3 py-1.5">
+                      <span className="font-mono-num w-6 shrink-0 text-right text-meta text-ink-3 tabular-nums">
+                        {i + 1}
+                      </span>
+                      {m && (
+                        <span className="w-7 shrink-0">
+                          <CoverImage src={m.coverImage} alt="" color={m.color} flat />
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-label text-ink-2">
+                        {m ? displayTitle(m, language) : '…'}
+                      </span>
+                      {entries[id]?.score != null && (
+                        <Rating value={entries[id].score} size="xs" className="shrink-0" />
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+              <li>
+                <Slot index={field.length} onClick={() => place(field.length)} last />
+              </li>
             </ol>
           </div>
         )}
@@ -379,16 +449,44 @@ export function RankDialog({
   )
 }
 
-function RankRowTitle({ mediaId, highlight }: { mediaId: number; highlight: boolean }) {
-  // Reads the batch cache the library already populated, so this costs nothing
-  // extra in the common case.
-  const { media } = useMediaSummary(mediaId)
-  const language = usePrefs((s) => s.titleLanguage)
+/**
+ * The gap between two ranked titles, as a control.
+ *
+ * Collapsed it is a hairline; on hover or focus it opens into a labelled band.
+ * That expansion is the whole affordance — a row of invisible 8px hit targets
+ * is not discoverable, and a permanently open row of "insert here" buttons
+ * doubles the length of the list and buries the titles you are reading.
+ */
+function Slot({ index, onClick, last }: { index: number; onClick: () => void; last?: boolean }) {
+  const line =
+    'h-px flex-1 rounded-full bg-transparent transition-colors duration-200 ' +
+    'group-hover/slot:bg-accent group-focus-visible/slot:bg-accent'
 
   return (
-    <span className={cn('truncate', highlight && 'font-medium text-accent')}>
-      {media ? displayTitle(media, language) : '…'}
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Place here, as number ${index + 1}`}
+      className={cn(
+        'group/slot flex w-full items-center gap-2 overflow-hidden rounded-sm',
+        'h-2 transition-[height,background-color] duration-200 ease-[var(--ease-out-expo)]',
+        'hover:h-8 hover:bg-accent-quiet focus-visible:h-8 focus-visible:bg-accent-quiet',
+        last && 'mt-1',
+      )}
+    >
+      <span className={line} aria-hidden />
+      <span
+        className={cn(
+          'shrink-0 px-1.5 text-[0.625rem] font-semibold tracking-wide text-accent uppercase',
+          'opacity-0 transition-opacity duration-200',
+          'group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100',
+        )}
+        aria-hidden
+      >
+        Place {ordinal(index + 1)}
+      </span>
+      <span className={line} aria-hidden />
+    </button>
   )
 }
 
@@ -617,7 +715,17 @@ export function MediaMenuContent({
 
       <MenuItem
         icon={
-          <Heart className={cn('size-4', entry?.favorite && 'fill-current text-dropped')} />
+          <Heart
+            // Keyed on the state so the heart re-mounts and beats once each
+            // time it is filled — the one place in the app where a little
+            // theatre is exactly the right amount.
+            key={String(entry?.favorite)}
+            className={cn(
+              'size-4',
+              entry?.favorite &&
+                'fill-current text-dropped motion-safe:animate-[thump_460ms_var(--ease-spring)]',
+            )}
+          />
         }
         onSelect={() => {
           toggleFavorite()

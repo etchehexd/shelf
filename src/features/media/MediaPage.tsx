@@ -12,6 +12,8 @@ import {
   Button,
   Card,
   CommunityScore,
+  SCORE_BAND_WORD,
+  scoreBand,
   CoverImage,
   CoverSkeleton,
   Eyebrow,
@@ -196,17 +198,30 @@ function Hero({ media }: { media: Media }) {
           </p>
         )}
 
-        {/* The two numbers, side by side and impossible to confuse: a colored
-            gauge reading X.X/10 for everyone else, ember stars for you. */}
-        <div className="mt-7 flex flex-wrap items-stretch gap-x-8 gap-y-5">
+        {/* The two scores.
+            This row used to carry a 56px gauge, a big numeral, "/10", a word,
+            a tracking count, five stars, a second numeral, a second "/10" and
+            a second word — nine pieces of chrome to say two numbers, with a
+            vertical rule down the middle for good measure.
+
+            Now each side is one labelled thing. The community score is its own
+            colored block with the count folded into its caption; yours is the
+            stars and a word. Same information, a third of the furniture, and
+            the two halves no longer compete to be the headline. */}
+        <div className="mt-7 flex flex-wrap items-center gap-3">
           {media.averageScore != null && (
-            <div className="flex items-center gap-3 pr-8 sm:border-r sm:border-line">
-              <CommunityScore value={media.averageScore} variant="hero" />
-              {media.popularity > 0 && (
-                <span className="label-cat label-cat-plain self-end pb-0.5">
-                  {compactNumber(media.popularity)} tracking
+            <div className="flex items-center gap-3 rounded-lg border border-line bg-surface-2/60 py-2.5 pr-4 pl-3">
+              <CommunityScore value={media.averageScore} variant="badge" size="md" />
+              <span className="flex flex-col">
+                <span className="text-label font-medium text-ink">
+                  {SCORE_BAND_WORD[scoreBand(media.averageScore / 10)]}
                 </span>
-              )}
+                <span className="label-cat label-cat-plain mt-0.5">
+                  {media.popularity > 0
+                    ? `${compactNumber(media.popularity)} tracking`
+                    : 'Community'}
+                </span>
+              </span>
             </div>
           )}
 
@@ -215,18 +230,23 @@ function Hero({ media }: { media: Media }) {
             trigger={
               <button
                 type="button"
-                className="group/rate flex items-center gap-3 rounded-sm"
+                className={cn(
+                  'group/rate flex items-center gap-3 rounded-lg border py-2.5 pr-4 pl-3 text-left',
+                  'transition-[border-color,background-color] duration-200',
+                  entry?.score != null
+                    ? 'border-accent-line bg-accent-quiet/50 hover:border-accent'
+                    : 'border-dashed border-line-strong hover:border-accent-line hover:bg-accent-quiet/30',
+                )}
                 aria-label="Your score"
               >
-                <Rating value={entry?.score ?? null} size="lg" art />
-                <span className="flex flex-col items-start">
-                  <span className="font-mono-num text-display-sm leading-none font-semibold text-ink">
-                    {entry?.score ?? '—'}
-                    <span className="text-ink-3">/10</span>
+                <Rating value={entry?.score ?? null} size="md" art />
+                <span className="flex flex-col">
+                  <span className="text-label font-medium text-ink">
+                    {entry?.score != null ? ratingWord(entry.score) : unlocked ? 'Rate it' : 'Not yet'}
                   </span>
-                  <span className="label-cat label-cat-plain mt-1 flex items-center gap-1.5">
+                  <span className="label-cat label-cat-plain mt-0.5 flex items-center gap-1.5">
                     {!unlocked && entry?.score == null && <Lock className="size-2.5" aria-hidden />}
-                    {entry?.score != null ? `Yours · ${ratingWord(entry.score)}` : unlocked ? 'Your score' : 'Finish to score'}
+                    {entry?.score != null ? 'Yours' : unlocked ? 'Your score' : 'Finish to score'}
                   </span>
                 </span>
               </button>

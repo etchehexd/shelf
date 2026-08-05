@@ -281,6 +281,14 @@ export interface WeekStats {
 }
 
 /** Everything on the dashboard's "this week" tiles, derived from the log alone. */
+/**
+ * The largest single progress jump "this week" will believe.
+ *
+ * A 24-episode cour in one sitting is a long day but a real one; 400 in one
+ * write is somebody entering where they already were.
+ */
+const BACKFILL = 24
+
 export function useWeekStats(days = 7): WeekStats {
   const activity = useActivity()
 
@@ -295,8 +303,26 @@ export function useWeekStats(days = 7): WeekStats {
         const from = Number(e.payload.from ?? 0)
         const to = Number(e.payload.to ?? 0)
         const delta = Math.max(0, to - from)
-        if (e.kind === 'anime') stats.episodes += delta
-        else stats.chapters += delta
+
+        /**
+         * A single jump this big is a correction, not a week.
+         *
+         * Adding a title you are already 400 episodes into — or typing an
+         * exact number to catch the record up after watching elsewhere —
+         * writes one `progress` event with `from: 0, to: 400`. Counting the
+         * raw delta meant "this week" reported your entire backlog: a fresh
+         * account that had never logged anything by hand proudly announced
+         * 1172 episodes watched, which is both wrong and the kind of wrong
+         * that makes every other number on the page suspect.
+         *
+         * The cap is per event, not per week, so a genuine binge still adds
+         * up across the days it actually happened on. `BACKFILL` sits above
+         * any plausible single sitting and below any plausible catch-up.
+         */
+        const counted = delta > BACKFILL ? 0 : delta
+
+        if (e.kind === 'anime') stats.episodes += counted
+        else stats.chapters += counted
       }
 
       if (e.type === 'status' && e.payload.to === 'completed') stats.completed += 1

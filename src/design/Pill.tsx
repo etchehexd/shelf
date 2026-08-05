@@ -83,7 +83,11 @@ export function Chip({
         'inline-flex h-7.5 items-center rounded-full border px-3 text-meta font-medium whitespace-nowrap',
         'transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.97]',
         active
-          ? 'border-accent-line bg-accent text-accent-ink shadow-xs'
+          ? // Squishes on the way in, like a real button being pressed. Keyed
+            // by the class alone — a chip that is already active and re-renders
+            // does not replay it, because the animation belongs to the moment
+            // of turning on, not to being on.
+            'border-accent-line bg-accent text-accent-ink shadow-xs motion-safe:animate-[squish_300ms_var(--ease-spring)]'
           : 'border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink',
         className,
       )}

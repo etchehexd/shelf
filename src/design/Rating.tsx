@@ -531,19 +531,21 @@ export function CommunityScore({
           // The inset hairline is what stops a pale band dissolving into a
           // pale cover — a solid chip on artwork needs its own edge.
           'shadow-[0_1px_3px_rgb(0_0_0/0.35),inset_0_0_0_1px_rgb(255_255_255/0.18)]',
-          size === 'sm' ? 'px-1 py-[0.1rem] text-[0.6875rem]' : 'px-1.5 py-0.5 text-[0.78rem]',
+          'transition-transform duration-300 ease-[var(--ease-spring)] group-hover/card:scale-110',
+          size === 'sm' ? 'px-1.5 py-[0.1rem] text-[0.6875rem]' : 'px-2 py-0.5 text-[0.78rem]',
           BAND_SOLID[band],
           className,
         )}
         title={label}
         aria-label={label}
       >
+        {/* No "/10" on a poster. At badge size the denominator is four extra
+            glyphs of pure noise sitting on top of artwork — the scale is
+            already unambiguous from the decimal point and from the band color,
+            and the accessible name below still spells it out in full. The
+            larger `pill` and `hero` variants keep it, where there is room for
+            it to be information rather than clutter. */}
         {text}
-        {/* Half-opacity rather than a second color: the denominator is
-            context, not data, and it must never out-shout the digits. */}
-        <span className={size === 'sm' ? 'text-[0.5rem] opacity-70' : 'text-[0.5625rem] opacity-70'}>
-          /10
-        </span>
       </span>
     )
   }
