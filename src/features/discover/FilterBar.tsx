@@ -1,21 +1,42 @@
-import { useMemo } from 'react'
-import { Check, SlidersHorizontal, X } from 'lucide-react'
-import { Button, Chip, MenuLabel, Pill, Popover, SegmentedControl } from '@/design'
+import { useMemo, useState } from 'react'
+import { Check, Minus, SlidersHorizontal, X } from 'lucide-react'
+import { Button, Eyebrow, Popover, SegmentedControl } from '@/design'
 import { useGenres, type MediaFilters } from '@/data/anilist/hooks'
 import type { MediaKind } from '@/data/anilist/types'
 import { cn } from '@/lib/cn'
 
 /**
- * The narrowing controls.
+ * One filter control, not six.
  *
- * One row of dropdowns, then a row of what is currently on. That second row is
- * the important half: a filter you cannot see is a filter you will forget you
- * set, and "why is this list empty" is almost always an invisible filter three
- * screens back. Every active constraint is a chip here, and every chip removes
- * exactly itself.
+ * The old bar was a row of five separate dropdowns — Genre, Format, Any year,
+ * Any score, Status — each opening its own little menu. That is five things to
+ * scan before you have narrowed anything, five popovers that each know a
+ * different amount about what you already picked, and no single place that
+ * answers "what is currently on". It read as a toolbar for a spreadsheet.
  *
- * Multi-select menus stay open as you tick; single-select ones close. That
- * follows the intent — you pick one format, but you pick three genres.
+ * Now there is one button. It opens a panel with every axis laid out at once,
+ * so choosing a genre and a decade is one interaction rather than two, and you
+ * can see the whole shape of a query while you build it.
+ *
+ * ---------------------------------------------------------------- tri-state
+ *
+ * Genres, formats and statuses are three-way rather than on/off:
+ *
+ *   neutral   the filter says nothing about this value
+ *   include   results must have it
+ *   exclude   results must not have it
+ *
+ * Excluding is the half people actually reach for and almost no tracker
+ * offers: "isekai, but not harem" is a real request, and with on/off checkboxes
+ * it is unexpressible. Clicking cycles neutral → include → exclude → neutral,
+ * and the checkbox itself shows which state it is in — a tick, a minus, or
+ * nothing — so the three states are distinguishable without color alone.
+ *
+ * Exclusions are applied *locally*, after results come back, because the
+ * upstream catalog has no "not this genre" argument. That is a deliberate
+ * trade: it means an exclusion can thin a page of results rather than
+ * refetching a fuller one, which is a far better failure than silently
+ * ignoring the constraint.
  */
 
 const FORMATS: Record<MediaKind, { value: string; label: string }[]> = {
@@ -42,7 +63,6 @@ const STATUSES = [
   { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
-/** Decade buckets plus the years anyone actually filters to one at a time. */
 function yearOptions(): { label: string; from: number; to: number }[] {
   const now = new Date().getFullYear()
   const recent = Array.from({ length: 6 }, (_, i) => now - i).map((y) => ({
@@ -59,180 +79,217 @@ function yearOptions(): { label: string; from: number; to: number }[] {
 }
 
 const SCORES = [
-  { label: 'Any score', from: undefined },
+  { label: 'Any', from: undefined },
   { label: '9.0+', from: 9 },
   { label: '8.0+', from: 8 },
   { label: '7.0+', from: 7 },
   { label: '6.0+', from: 6 },
 ] as const
 
+export type TriState = 'off' | 'include' | 'exclude'
+
+function stateOf(filters: MediaFilters, axis: 'genres' | 'formats' | 'statuses', value: string): TriState {
+  if ((filters[axis] ?? []).includes(value)) return 'include'
+  const excludeKey = `${axis}Excluded` as const
+  if ((filters[excludeKey] ?? []).includes(value)) return 'exclude'
+  return 'off'
+}
+
+function cycle(
+  filters: MediaFilters,
+  axis: 'genres' | 'formats' | 'statuses',
+  value: string,
+): MediaFilters {
+  const excludeKey = `${axis}Excluded` as const
+  const included = filters[axis] ?? []
+  const excluded = filters[excludeKey] ?? []
+  const current = stateOf(filters, axis, value)
+
+  if (current === 'off') {
+    return { ...filters, [axis]: [...included, value] }
+  }
+  if (current === 'include') {
+    return {
+      ...filters,
+      [axis]: included.filter((v) => v !== value),
+      [excludeKey]: [...excluded, value],
+    }
+  }
+  return { ...filters, [excludeKey]: excluded.filter((v) => v !== value) }
+}
+
 export interface FilterBarProps {
   kind: MediaKind
   filters: MediaFilters
   onChange: (next: MediaFilters) => void
-  /** Sort is only offered while browsing — a text search sorts by relevance. */
   sort?: string
   onSortChange?: (next: string) => void
   showSort?: boolean
 }
 
-export function FilterBar({
-  kind,
-  filters,
-  onChange,
-  sort,
-  onSortChange,
-  showSort,
-}: FilterBarProps) {
+export function FilterBar({ kind, filters, onChange, sort, onSortChange, showSort }: FilterBarProps) {
   const { data: allGenres } = useGenres()
   const formats = FORMATS[kind]
   const years = useMemo(yearOptions, [])
-
-  const genres = filters.genres ?? []
-  const chosenFormats = filters.formats ?? []
-  const statuses = filters.statuses ?? []
-
-  const toggle = (list: string[], value: string): string[] =>
-    list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
+  const [open, setOpen] = useState(false)
 
   const yearLabel =
     filters.yearFrom == null
-      ? 'Any year'
+      ? null
       : (years.find((y) => y.from === filters.yearFrom && y.to === filters.yearTo)?.label ??
         `${filters.yearFrom}–${filters.yearTo}`)
 
-  const scoreLabel =
-    filters.scoreFrom == null
-      ? 'Any score'
-      : `${filters.scoreFrom.toFixed(1)}+`
+  /** Every constraint currently on, as a removable chip. */
+  const active: { key: string; label: string; negated?: boolean; clear: () => void }[] = []
 
-  const active = [
-    ...genres.map((g) => ({ key: `genre:${g}`, label: g, clear: () => onChange({ ...filters, genres: genres.filter((x) => x !== g) }) })),
-    ...chosenFormats.map((f) => ({
-      key: `format:${f}`,
-      label: formats.find((o) => o.value === f)?.label ?? f,
-      clear: () => onChange({ ...filters, formats: chosenFormats.filter((x) => x !== f) }),
-    })),
-    ...statuses.map((s) => ({
-      key: `status:${s}`,
-      label: STATUSES.find((o) => o.value === s)?.label ?? s,
-      clear: () => onChange({ ...filters, statuses: statuses.filter((x) => x !== s) }),
-    })),
-    ...(filters.yearFrom != null
-      ? [{ key: 'year', label: yearLabel, clear: () => onChange({ ...filters, yearFrom: undefined, yearTo: undefined }) }]
-      : []),
-    ...(filters.scoreFrom != null
-      ? [{ key: 'score', label: scoreLabel, clear: () => onChange({ ...filters, scoreFrom: undefined }) }]
-      : []),
-  ]
+  for (const axis of ['genres', 'formats', 'statuses'] as const) {
+    const excludeKey = `${axis}Excluded` as const
+    const labelFor = (v: string) =>
+      axis === 'formats'
+        ? (formats.find((f) => f.value === v)?.label ?? v)
+        : axis === 'statuses'
+          ? (STATUSES.find((s) => s.value === v)?.label ?? v)
+          : v
+
+    for (const v of filters[axis] ?? []) {
+      active.push({
+        key: `${axis}:${v}`,
+        label: labelFor(v),
+        clear: () => onChange({ ...filters, [axis]: (filters[axis] ?? []).filter((x) => x !== v) }),
+      })
+    }
+    for (const v of filters[excludeKey] ?? []) {
+      active.push({
+        key: `${excludeKey}:${v}`,
+        label: labelFor(v),
+        negated: true,
+        clear: () =>
+          onChange({ ...filters, [excludeKey]: (filters[excludeKey] ?? []).filter((x) => x !== v) }),
+      })
+    }
+  }
+
+  if (yearLabel) {
+    active.push({
+      key: 'year',
+      label: yearLabel,
+      clear: () => onChange({ ...filters, yearFrom: undefined, yearTo: undefined }),
+    })
+  }
+  if (filters.scoreFrom != null) {
+    active.push({
+      key: 'score',
+      label: `${filters.scoreFrom.toFixed(1)}+`,
+      clear: () => onChange({ ...filters, scoreFrom: undefined }),
+    })
+  }
 
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="label-cat mr-1 hidden sm:inline-flex">
-          <SlidersHorizontal className="size-3" aria-hidden />
-          Narrow
-        </span>
-
-        <FilterMenu label="Genre" count={genres.length}>
+        <Popover
+          side="bottom"
+          align="start"
+          role="dialog"
+          label="Filters"
+          open={open}
+          onOpenChange={setOpen}
+          className="w-[min(30rem,calc(100vw-2rem))] p-0"
+          trigger={
+            <Button
+              icon={<SlidersHorizontal className="size-4" />}
+              variant={active.length > 0 ? 'primary' : 'secondary'}
+              aria-haspopup="dialog"
+            >
+              Filters
+              {active.length > 0 && (
+                <span className="font-mono-num ml-1 rounded-full bg-accent-ink/25 px-1.5 text-[0.6875rem]">
+                  {active.length}
+                </span>
+              )}
+            </Button>
+          }
+        >
           {() => (
-            <div className="max-h-80 overflow-y-auto">
-              <MenuLabel>Genre</MenuLabel>
-              {(allGenres ?? []).map((g) => (
-                <CheckRow
-                  key={g}
-                  checked={genres.includes(g)}
-                  onSelect={() => onChange({ ...filters, genres: toggle(genres, g) })}
-                >
-                  {g}
-                </CheckRow>
-              ))}
+            <div className="max-h-[70vh] overflow-y-auto overscroll-contain p-4">
+              <p className="mb-4 text-meta text-ink-3">
+                Click once to require, twice to exclude.
+              </p>
+
+              <Axis title="Genre">
+                {(allGenres ?? []).map((g) => (
+                  <TriChip
+                    key={g}
+                    label={g}
+                    state={stateOf(filters, 'genres', g)}
+                    onClick={() => onChange(cycle(filters, 'genres', g))}
+                  />
+                ))}
+              </Axis>
+
+              <Axis title="Format">
+                {formats.map((f) => (
+                  <TriChip
+                    key={f.value}
+                    label={f.label}
+                    state={stateOf(filters, 'formats', f.value)}
+                    onClick={() => onChange(cycle(filters, 'formats', f.value))}
+                  />
+                ))}
+              </Axis>
+
+              <Axis title="Status">
+                {STATUSES.map((s) => (
+                  <TriChip
+                    key={s.value}
+                    label={s.label}
+                    state={stateOf(filters, 'statuses', s.value)}
+                    onClick={() => onChange(cycle(filters, 'statuses', s.value))}
+                  />
+                ))}
+              </Axis>
+
+              {/* Year and score are ranges, so they stay single-select — there
+                  is no coherent meaning for "exclude the 2010s but also
+                  require 2015". */}
+              <Axis title="Released">
+                <PickChip
+                  label="Any year"
+                  active={filters.yearFrom == null}
+                  onClick={() => onChange({ ...filters, yearFrom: undefined, yearTo: undefined })}
+                />
+                {years.map((y) => (
+                  <PickChip
+                    key={y.label}
+                    label={y.label}
+                    active={filters.yearFrom === y.from && filters.yearTo === y.to}
+                    onClick={() => onChange({ ...filters, yearFrom: y.from, yearTo: y.to })}
+                  />
+                ))}
+              </Axis>
+
+              <Axis title="Community score" last>
+                {SCORES.map((s) => (
+                  <PickChip
+                    key={s.label}
+                    label={s.label}
+                    active={filters.scoreFrom === s.from}
+                    onClick={() => onChange({ ...filters, scoreFrom: s.from })}
+                  />
+                ))}
+              </Axis>
+
+              <div className="sticky bottom-0 -mx-4 -mb-4 mt-5 flex items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3">
+                <Button variant="ghost" size="sm" onClick={() => onChange({})}>
+                  Clear all
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => setOpen(false)}>
+                  Done
+                </Button>
+              </div>
             </div>
           )}
-        </FilterMenu>
-
-        <FilterMenu label="Format" count={chosenFormats.length}>
-          {() => (
-            <>
-              <MenuLabel>Format</MenuLabel>
-              {formats.map((f) => (
-                <CheckRow
-                  key={f.value}
-                  checked={chosenFormats.includes(f.value)}
-                  onSelect={() => onChange({ ...filters, formats: toggle(chosenFormats, f.value) })}
-                >
-                  {f.label}
-                </CheckRow>
-              ))}
-            </>
-          )}
-        </FilterMenu>
-
-        <FilterMenu label={yearLabel} active={filters.yearFrom != null}>
-          {({ close }) => (
-            <div className="max-h-80 overflow-y-auto">
-              <MenuLabel>Released</MenuLabel>
-              <CheckRow
-                checked={filters.yearFrom == null}
-                onSelect={() => {
-                  onChange({ ...filters, yearFrom: undefined, yearTo: undefined })
-                  close()
-                }}
-              >
-                Any year
-              </CheckRow>
-              {years.map((y) => (
-                <CheckRow
-                  key={y.label}
-                  checked={filters.yearFrom === y.from && filters.yearTo === y.to}
-                  onSelect={() => {
-                    onChange({ ...filters, yearFrom: y.from, yearTo: y.to })
-                    close()
-                  }}
-                >
-                  {y.label}
-                </CheckRow>
-              ))}
-            </div>
-          )}
-        </FilterMenu>
-
-        <FilterMenu label={scoreLabel} active={filters.scoreFrom != null}>
-          {({ close }) => (
-            <>
-              <MenuLabel>Community score</MenuLabel>
-              {SCORES.map((s) => (
-                <CheckRow
-                  key={s.label}
-                  checked={filters.scoreFrom === s.from}
-                  onSelect={() => {
-                    onChange({ ...filters, scoreFrom: s.from })
-                    close()
-                  }}
-                >
-                  {s.label}
-                </CheckRow>
-              ))}
-            </>
-          )}
-        </FilterMenu>
-
-        <FilterMenu label="Status" count={statuses.length}>
-          {() => (
-            <>
-              <MenuLabel>Status</MenuLabel>
-              {STATUSES.map((s) => (
-                <CheckRow
-                  key={s.value}
-                  checked={statuses.includes(s.value)}
-                  onSelect={() => onChange({ ...filters, statuses: toggle(statuses, s.value) })}
-                >
-                  {s.label}
-                </CheckRow>
-              ))}
-            </>
-          )}
-        </FilterMenu>
+        </Popover>
 
         {showSort && onSortChange && (
           <div className="ml-auto">
@@ -251,6 +308,8 @@ export function FilterBar({
         )}
       </div>
 
+      {/* What is on, outside the panel. An active filter you have to open a
+          menu to see is an active filter you will forget you set. */}
       {active.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           {active.map((a) => (
@@ -259,12 +318,15 @@ export function FilterBar({
               type="button"
               onClick={a.clear}
               className={cn(
-                'group inline-flex h-7 items-center gap-1.5 rounded-full border border-accent-line',
-                'bg-accent-quiet pr-2 pl-3 text-meta font-medium text-accent transition-colors',
-                'hover:border-accent hover:bg-accent hover:text-accent-ink',
+                'group inline-flex h-7 items-center gap-1.5 rounded-full border pr-2 pl-3',
+                'text-meta font-medium transition-colors',
+                a.negated
+                  ? 'border-dropped/45 bg-dropped/10 text-dropped hover:border-dropped hover:bg-dropped hover:text-canvas'
+                  : 'border-accent-line bg-accent-quiet text-accent hover:border-accent hover:bg-accent hover:text-accent-ink',
               )}
-              aria-label={`Remove filter ${a.label}`}
+              aria-label={`Remove filter ${a.negated ? 'excluding ' : ''}${a.label}`}
             >
+              {a.negated && <Minus className="size-3" aria-hidden />}
               {a.label}
               <X className="size-3.5 opacity-60 group-hover:opacity-100" aria-hidden />
             </button>
@@ -280,83 +342,91 @@ export function FilterBar({
 
 /* -------------------------------------------------------------------------- */
 
-function FilterMenu({
-  label,
-  count,
-  active,
+function Axis({
+  title,
   children,
+  last,
 }: {
-  label: string
-  count?: number
-  active?: boolean
-  children: (api: { close: () => void }) => React.ReactNode
+  title: string
+  children: React.ReactNode
+  last?: boolean
 }) {
-  const on = active || (count ?? 0) > 0
-
   return (
-    <Popover
-      side="bottom"
-      align="start"
-      role="menu"
-      label={label}
-      className="w-56"
-      trigger={
-        <Chip active={on} aria-haspopup="menu">
-          {label}
-          {count != null && count > 0 && (
-            <Pill
-              size="sm"
-              className="ml-1.5 h-4.5 border-none bg-accent-ink/20 px-1.5 text-[0.625rem] text-current"
-            >
-              {count}
-            </Pill>
-          )}
-        </Chip>
-      }
-    >
-      {children}
-    </Popover>
+    <div className={cn('py-3', !last && 'border-b border-line')}>
+      <Eyebrow className="mb-2.5">{title}</Eyebrow>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
   )
 }
 
 /**
- * A menu row that reads as a checkbox.
+ * A three-state chip.
  *
- * Not `MenuItem`: that one is built for "pick this and the menu closes", and
- * silently reusing it for a multi-select is how a menu ends up dismissing
- * itself after the first genre.
+ * The state is carried by an icon as well as by color — a tick for include, a
+ * minus for exclude, nothing for off — because "this genre is required" and
+ * "this genre is banned" differing only in hue is unreadable to a good
+ * proportion of people and ambiguous to everybody in a screenshot.
  */
-function CheckRow({
-  checked,
-  onSelect,
-  children,
+function TriChip({
+  label,
+  state,
+  onClick,
 }: {
-  checked: boolean
-  onSelect: () => void
-  children: React.ReactNode
+  label: string
+  state: TriState
+  onClick: () => void
 }) {
   return (
     <button
       type="button"
-      role="menuitemcheckbox"
-      aria-checked={checked}
-      onClick={onSelect}
+      onClick={onClick}
+      aria-pressed={state !== 'off'}
+      title={
+        state === 'include'
+          ? `${label} — required. Click to exclude.`
+          : state === 'exclude'
+            ? `${label} — excluded. Click to clear.`
+            : `${label} — click to require.`
+      }
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-label',
-        'transition-colors hover:bg-surface-2',
-        checked ? 'font-medium text-ink' : 'text-ink-2',
+        'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-meta font-medium',
+        'transition-colors duration-150 active:scale-[0.97]',
+        state === 'include' &&
+          'border-accent-line bg-accent text-accent-ink motion-safe:animate-[squish_300ms_var(--ease-spring)]',
+        state === 'exclude' && 'border-dropped/50 bg-dropped/15 text-dropped line-through',
+        state === 'off' && 'border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink',
       )}
     >
-      <span
-        className={cn(
-          'flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
-          checked ? 'border-accent bg-accent text-accent-ink' : 'border-line-strong',
-        )}
-        aria-hidden
-      >
-        {checked && <Check className="size-3" strokeWidth={3} />}
-      </span>
-      <span className="truncate">{children}</span>
+      {state === 'include' && <Check className="size-3" strokeWidth={3} aria-hidden />}
+      {state === 'exclude' && <Minus className="size-3" strokeWidth={3} aria-hidden />}
+      {label}
+    </button>
+  )
+}
+
+function PickChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'inline-flex h-7 items-center rounded-full border px-2.5 text-meta font-medium',
+        'transition-colors duration-150 active:scale-[0.97]',
+        active
+          ? 'border-accent-line bg-accent text-accent-ink'
+          : 'border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink',
+      )}
+    >
+      {label}
     </button>
   )
 }

@@ -29,6 +29,7 @@ import {
   Dialog,
   Eyebrow,
   Field,
+  ImagePicker,
   Input,
   Pill,
   Rail,
@@ -196,6 +197,16 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* The counts, as a row.
+              Straight from the Letterboxd reading of a profile: a handful of
+              totals sitting beside the name, each one a number and a word, no
+              icons and no cards. It is the fastest possible answer to "who is
+              this person" — and it is the thing this header was missing, which
+              is why it read as a banner with a name on it rather than as a
+              profile. Each figure links to the view that produced it, so the
+              row is navigation as well as summary. */}
+          <StatStrip className="mt-7" entries={entries} map={map} />
+
           {profile.bio && (
             <p className="prose-width mt-6 text-body text-ink-2">{profile.bio}</p>
           )}
@@ -260,6 +271,60 @@ export default function ProfilePage() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The figures row.
+ *
+ * Deliberately plain: a big number, a small word under it, a hairline between
+ * each. No cards, no icons, no color. The moment a stat gets a container it
+ * becomes a widget competing with the rest of the page, and the whole value of
+ * this pattern is that six facts occupy one line.
+ */
+function StatStrip({
+  entries,
+  map,
+  className,
+}: {
+  entries: ReturnType<typeof useAllEntries>
+  map: Map<number, MediaSummary>
+  className?: string
+}) {
+  const collections = useCollections()
+  const totals = useMemo(() => libraryTotals(entries, map), [entries, map])
+
+  const thisYear = useMemo(() => {
+    const start = new Date(new Date().getFullYear(), 0, 1).getTime()
+    return entries.filter((e) => e.finishedAt && new Date(e.finishedAt).getTime() >= start).length
+  }, [entries])
+
+  const figures: { value: string | number; label: string; to: string }[] = [
+    { value: compactNumber(totals.titles), label: 'Titles', to: '/library' },
+    { value: thisYear, label: 'This year', to: '/library?status=completed' },
+    { value: compactNumber(totals.episodes), label: 'Episodes', to: '/library' },
+    { value: collections.length, label: 'Collections', to: '/collections' },
+    { value: totals.meanScore ? scoreText(totals.meanScore) : '—', label: 'Average', to: '/library?sort=score' },
+  ]
+
+  return (
+    <div className={cn('flex flex-wrap items-stretch', className)}>
+      {figures.map((f, i) => (
+        <Link
+          key={f.label}
+          to={f.to}
+          className={cn(
+            'group/stat min-w-20 px-5 first:pl-0',
+            i > 0 && 'border-l border-line',
+          )}
+        >
+          <span className="font-mono-num block text-display-sm leading-none font-bold text-ink tabular-nums transition-colors group-hover/stat:text-accent">
+            {f.value}
+          </span>
+          <span className="label-cat label-cat-plain mt-1.5 block">{f.label}</span>
+        </Link>
+      ))}
+    </div>
+  )
+}
 
 /**
  * The default banner: a wall of your own covers, cropped to a strip and dimmed.
@@ -926,17 +991,23 @@ function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }
           )}
         </Field>
 
-        <Field label="Avatar URL">
-          {(props) => (
-            <Input {...props} value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} />
-          )}
-        </Field>
+        <ImagePicker
+          label="Profile picture"
+          hint="Square works best. Resized to 512px."
+          shape="circle"
+          maxEdge={512}
+          value={avatarUrl || null}
+          onChange={(next) => setAvatarUrl(next ?? '')}
+        />
 
-        <Field label="Banner URL" hint="Leave it empty and your own covers fill the space.">
-          {(props) => (
-            <Input {...props} value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} />
-          )}
-        </Field>
+        <ImagePicker
+          label="Banner"
+          hint="Wide works best. Leave it empty and your own covers fill the space."
+          shape="banner"
+          maxEdge={1600}
+          value={bannerUrl || null}
+          onChange={(next) => setBannerUrl(next ?? '')}
+        />
 
         <Switch
           checked={isPublic}

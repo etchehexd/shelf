@@ -248,6 +248,15 @@ export interface MediaCardProps {
   /** Index in a staggered grid — drives the entrance delay. */
   index?: number
   /**
+   * Hide everyone else's score.
+   *
+   * On your own shelves — the Library, a collection you built — the crowd's
+   * opinion is not what you are there for, and a colored chip on every poster
+   * competes with your own stars for the same glance. Discover keeps it,
+   * because there the community score is the only signal you have.
+   */
+  showCommunity?: boolean
+  /**
    * Artwork only: no title, no meta line, no progress track.
    *
    * For rows where the *shape* is the content — a lean row of overlapping
@@ -273,6 +282,7 @@ export function MediaCard({
   media,
   showProgress = true,
   showRank,
+  showCommunity = true,
   index,
   bare,
   className,
@@ -334,7 +344,7 @@ export function MediaCard({
 
             {/* Everyone's number, top-left. Never fades — a community score you
                 have to hover for is a community score nobody reads. */}
-            <CommunityTab value={media.averageScore} />
+            {showCommunity && <CommunityTab value={media.averageScore} />}
 
             {/* Yours, bottom-left, as stars. */}
             <ScoreTab value={entry?.score} fades={showControls} />
@@ -585,10 +595,13 @@ export function MediaRow({
 export function ShelfCover({
   media,
   entry,
+  showCommunity = true,
   width = 'md',
 }: {
   media: MediaSummary
   entry?: LibraryEntry
+  /** Off on your own shelves — see MediaCard. */
+  showCommunity?: boolean
   width?: 'sm' | 'md' | 'lg'
 }) {
   const language = usePrefs((s) => s.titleLanguage)
@@ -602,7 +615,9 @@ export function ShelfCover({
     <div className={cn('group/shelf frame-lift shrink-0 self-end', w)} onContextMenu={menu.open}>
       <Link to={`/media/${media.id}`} onPointerEnter={() => prefetch(media.id)} className="block">
         <CoverImage src={media.coverImage} alt={displayTitle(media, language)} color={media.color}>
-          <CommunityTab value={media.averageScore} size={width === 'lg' ? 'md' : 'sm'} />
+          {showCommunity && (
+            <CommunityTab value={media.averageScore} size={width === 'lg' ? 'md' : 'sm'} />
+          )}
           <ScoreTab value={entry?.score} size={width === 'lg' ? 'sm' : 'xs'} />
         </CoverImage>
       </Link>

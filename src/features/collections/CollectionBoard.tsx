@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { ArrowUpRight, Plus, X } from 'lucide-react'
-import { CoverImage, IconButton, toast } from '@/design'
+import { CoverImage, IconButton, Skeleton, toast } from '@/design'
 import { useMediaMap } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
 import type { MediaSummary } from '@/data/anilist/types'
@@ -189,7 +189,9 @@ function CollectionColumn({
       >
         {items.map((item) => {
           const media = map.get(item.mediaId)
-          if (!media) return null
+          // Same reasoning as the detail page: the column header counts stored
+          // items, so dropping unresolved ones makes the header a liar.
+          if (!media) return <Skeleton key={item.id} className="aspect-[2/3] w-full rounded-art" />
           return (
             <DraggableCover
               key={item.id}
@@ -298,7 +300,7 @@ function DraggableCover({
         title={displayTitle(media, language)}
         aria-label={`Move ${displayTitle(media, language)}`}
         className={cn(
-          'block w-full cursor-grab touch-none rounded-[4px] transition-opacity active:cursor-grabbing',
+          'block w-full cursor-grab touch-none rounded-art transition-opacity active:cursor-grabbing',
           isDragging && 'opacity-30',
         )}
         {...attributes}

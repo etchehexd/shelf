@@ -265,7 +265,7 @@ export default function DashboardPage() {
                 ) : (
                   <Skeleton
                     key={entry.mediaId}
-                    className="aspect-[2/3] w-32 shrink-0 rounded-[3px] md:w-38"
+                    className="aspect-[2/3] w-32 shrink-0 rounded-art md:w-38"
                   />
                 )
               })}
@@ -563,7 +563,7 @@ function CollectionStrip({
       {covers.length > 0 ? (
         <CoverStack covers={covers} width={44} offset={13} className="shrink-0" />
       ) : (
-        <div className="h-[66px] w-[44px] shrink-0 rounded-[3px] border border-dashed border-line-strong" />
+        <div className="h-[66px] w-[44px] shrink-0 rounded-art border border-dashed border-line-strong" />
       )}
 
       <div className="min-w-0 flex-1">

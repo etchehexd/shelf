@@ -5,7 +5,6 @@ import {
   Button,
   buttonClasses,
   Chip,
-  CommunityScore,
   CoverImage,
   CoverSkeleton,
   EmptyState,
@@ -392,9 +391,7 @@ function InProgressBand({
                     you opened the app to continue. */}
                 <div className={i === 0 ? 'w-24 md:w-28' : 'w-18 md:w-21'}>
                   <CoverImage src={media.coverImage} alt="" color={media.color}>
-                    <span className="absolute top-1.5 left-1.5 z-10">
-                      <CommunityScore value={media.averageScore} variant="badge" size="sm" />
-                    </span>
+
                   </CoverImage>
 
                   <div className="mt-2.5 space-y-1.5">
@@ -477,7 +474,13 @@ function GridView({ entries, map }: { entries: LibraryEntry[]; map: Map<number, 
       {entries.map((entry, i) => {
         const media = map.get(entry.mediaId)
         return media ? (
-          <MediaCard key={entry.mediaId} media={media} index={i} className="cv-auto" />
+          <MediaCard
+            key={entry.mediaId}
+            media={media}
+            index={i}
+            showCommunity={false}
+            className="cv-auto"
+          />
         ) : (
           <CoverSkeleton key={entry.mediaId} />
         )
@@ -542,11 +545,11 @@ function ShelfView({
             {row.entries.map((entry) => {
               const media = map.get(entry.mediaId)
               return media ? (
-                <ShelfCover key={entry.mediaId} media={media} entry={entry} />
+                <ShelfCover key={entry.mediaId} media={media} entry={entry} showCommunity={false} />
               ) : (
                 <Skeleton
                   key={entry.mediaId}
-                  className="aspect-[2/3] w-32 shrink-0 rounded-[3px] md:w-38"
+                  className="aspect-[2/3] w-32 shrink-0 rounded-art md:w-38"
                 />
               )
             })}

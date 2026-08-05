@@ -637,7 +637,7 @@ function RankPicker({
                     ? `${displayTitle(media, language)} — already ranked, place it again`
                     : displayTitle(media, language)
                 }
-                className="group relative rounded-[4px] text-left transition-transform duration-200 hover:-translate-y-1"
+                className="group relative rounded-art text-left transition-transform duration-200 hover:-translate-y-1"
               >
                 <CoverImage src={media.coverImage} alt="" color={media.color}>
                   {already && (

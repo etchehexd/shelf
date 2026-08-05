@@ -114,15 +114,29 @@ export function NavRail() {
               >
                 {({ isActive }) => (
                   <>
-                    {/* The spine. */}
+{/* The spine.
+
+                        Position and animation are on two different elements
+                        on purpose. They used to be on one, which meant
+                        `-translate-y-1/2` (centering) and `scale-y-*`
+                        (the reveal) were composing into a single transform —
+                        so the centering offset was itself being scaled, and
+                        the marker sat visibly high against its icon at rest
+                        and drifted as it animated. The outer element only
+                        positions; the inner one only scales. Neither can
+                        move the other. */}
                     <span
-                      className={cn(
-                        'absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent',
-                        'origin-left transition-transform duration-300 ease-[var(--ease-out-expo)]',
-                        isActive ? 'scale-y-100' : 'scale-y-0',
-                      )}
+                      className="pointer-events-none absolute inset-y-0 left-0 flex items-center"
                       aria-hidden
-                    />
+                    >
+                      <span
+                        className={cn(
+                          'h-5 w-[3px] rounded-r-full bg-accent',
+                          'origin-center transition-transform duration-300 ease-[var(--ease-out-expo)]',
+                          isActive ? 'scale-y-100' : 'scale-y-0',
+                        )}
+                      />
+                    </span>
                     <item.icon
                       className={cn(
                         'size-[18px] shrink-0 transition-transform duration-300',

@@ -16,10 +16,17 @@ export interface ProgressBarProps {
   className?: string
 }
 
-/** Above this, individual ticks stop being readable and become hatching. */
-const MAX_TICKS = 50
+/**
+ * Above this, individual ticks stop being readable and become hatching.
+ *
+ * Was 50. At 25 ticks in a 128px poster cell each segment is under 3px wide
+ * with a 2px gap — a row of dashes that reads as a barcode and, at 22% opacity
+ * on the unfilled half, is genuinely hard to look at. 16 is roughly the point
+ * where a tick is still wide enough to be a tick.
+ */
+const MAX_TICKS = 16
 
-const TRACK_H = { sm: 'h-1', md: 'h-1.5', lg: 'h-2' } as const
+const TRACK_H = { sm: 'h-1.5', md: 'h-2', lg: 'h-2.5' } as const
 
 /**
  * The progress track.
@@ -59,10 +66,10 @@ export function ProgressBar({
             <motion.span
               key={i}
               initial={false}
-              animate={{ opacity: done ? 1 : 0.22 }}
+              animate={{ opacity: done ? 1 : 0.4 }}
               transition={{ duration: 0.22, delay: done ? Math.min(i, 24) * 0.012 : 0 }}
               className={cn(
-                'min-w-[3px] flex-1 rounded-[1px]',
+                'min-w-[3px] flex-1 rounded-full',
                 done ? fill : 'bg-ink-3',
               )}
             />

@@ -121,6 +121,21 @@ export interface MediaFilters {
   genres?: string[]
   /** Upstream format enums — TV, MOVIE, OVA, MANGA, NOVEL… */
   formats?: string[]
+
+  /**
+   * The negative half of the tri-state filters.
+   *
+   * Kept as separate arrays rather than as signed values in one array, so the
+   * positive lists can go straight onto the request unchanged — upstream has
+   * genre_in, format_in and status_in, and no negation at all. Exclusions are
+   * therefore applied here, after the response lands. That costs a thinner
+   * page rather than a wrong one, which is the right way round: silently
+   * ignoring "not harem" would be a lie, and refetching until the page fills
+   * would hammer a rate-limited API for cosmetics.
+   */
+  genresExcluded?: string[]
+  formatsExcluded?: string[]
+  statusesExcluded?: string[]
   /** Release-year range, inclusive at both ends. */
   yearFrom?: number
   yearTo?: number
@@ -136,12 +151,31 @@ export function hasFilters(f: MediaFilters | undefined): boolean {
   return Boolean(
     f.genres?.length ||
       f.formats?.length ||
+      f.genresExcluded?.length ||
+      f.formatsExcluded?.length ||
+      f.statusesExcluded?.length ||
       f.yearFrom != null ||
       f.yearTo != null ||
       f.scoreFrom != null ||
       f.scoreTo != null ||
       f.statuses?.length,
   )
+}
+
+/** Drop anything the negative filters ban. Applied to every result path. */
+export function applyExclusions(media: MediaSummary[], f: MediaFilters | undefined): MediaSummary[] {
+  if (!f) return media
+  const genres = f.genresExcluded ?? []
+  const formats = f.formatsExcluded ?? []
+  const statuses = f.statusesExcluded ?? []
+  if (genres.length === 0 && formats.length === 0 && statuses.length === 0) return media
+
+  return media.filter((m) => {
+    if (genres.some((g) => m.genres.includes(g))) return false
+    if (m.format && formats.includes(m.format)) return false
+    if (m.status && statuses.includes(m.status)) return false
+    return true
+  })
 }
 
 export interface SearchParams extends MediaFilters {
@@ -317,7 +351,7 @@ export function useTitleSearch({
 
     return rankBy(
       trimmed,
-      [...byId.values()],
+      applyExclusions([...byId.values()], filters),
       (m) => ({
         names: [m.title.english, m.title.romaji, m.title.native],
         aliases: m.synonyms,

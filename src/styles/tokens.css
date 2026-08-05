@@ -293,7 +293,13 @@
   /* ---- radius -----------------------------------------------------------
      Deliberate variety. Artwork is nearly square-cornered so it reads as a
      printed object; the panels around it are soft. Sharp art, soft room. */
-  --radius-art: 3px;
+  /* Artwork corners. 3px was chosen to make a cover read as a *printed
+     object* — near-square, like a paperback. In practice, at every size the
+     app actually draws, 3px is indistinguishable from a hard 90° corner, and
+     a wall of hard-cornered rectangles is most of what "boxy" means. 10px is
+     still clearly a poster and not a pill, and it lets the artwork end
+     somewhere rather than being guillotined. */
+  --radius-art: 10px;
   --radius-xs: 6px;
   --radius-sm: 9px;
   --radius-md: 13px;

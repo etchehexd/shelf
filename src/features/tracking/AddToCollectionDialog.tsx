@@ -287,13 +287,13 @@ function CollectionRow({
       <span className="flex shrink-0 gap-0.5" aria-hidden>
         {[0, 1, 2].map((i) =>
           covers[i] ? (
-            <span key={covers[i].id} className="w-6 overflow-hidden rounded-[2px]">
+            <span key={covers[i].id} className="w-6 overflow-hidden rounded-art">
               <CoverImage src={covers[i].coverImage} alt="" color={covers[i].color} flat />
             </span>
           ) : (
             <span
               key={i}
-              className="h-9 w-6 rounded-[2px] border border-dashed border-line-strong/60"
+              className="h-9 w-6 rounded-art border border-dashed border-line-strong/60"
             />
           ),
         )}

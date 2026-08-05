@@ -85,5 +85,6 @@ export {
   type PaletteId,
 } from './theme'
 
+export { ImagePicker, type ImagePickerProps } from './ImagePicker'
 export { useReveal } from './reveal'
 export { usePageAccent } from './pageAccent'

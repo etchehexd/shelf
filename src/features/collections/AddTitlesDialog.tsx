@@ -287,7 +287,7 @@ function PickTile({
       onClick={onToggle}
       title={filed ? `${title} — already on this shelf` : title}
       className={cn(
-        'group relative rounded-[4px] text-left transition-transform duration-200',
+        'group relative rounded-art text-left transition-transform duration-200',
         filed ? 'cursor-default opacity-35' : 'hover:-translate-y-1',
       )}
     >
@@ -306,7 +306,7 @@ function PickTile({
         )}
         {tracked && !filed && !selected && (
           <span
-            className="absolute top-1 right-1 rounded-[3px] bg-canvas/85 px-1 py-px text-[0.5rem] font-semibold tracking-wide text-ink-2 uppercase backdrop-blur-sm"
+            className="absolute top-1 right-1 rounded-art bg-canvas/85 px-1 py-px text-[0.5rem] font-semibold tracking-wide text-ink-2 uppercase backdrop-blur-sm"
             aria-hidden
           >
             Tracked

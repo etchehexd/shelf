@@ -16,6 +16,7 @@ import {
   useResolvedTheme,
 } from '@/design'
 import {
+  applyExclusions,
   hasFilters,
   useMediaMap,
   useMediaSearch,
@@ -61,6 +62,13 @@ function filtersFromParams(params: URLSearchParams): MediaFilters {
     genres: params.getAll('genre'),
     formats: params.getAll('format'),
     statuses: params.getAll('status'),
+    // Negations get their own keys rather than a "-Action" prefix convention:
+    // genre names contain hyphens, spaces and ampersands already, and a
+    // sentinel character inside user-facing values is a bug waiting for the
+    // one genre that happens to start with it.
+    genresExcluded: params.getAll('nogenre'),
+    formatsExcluded: params.getAll('noformat'),
+    statusesExcluded: params.getAll('nostatus'),
     yearFrom: num('from'),
     yearTo: num('to'),
     scoreFrom: num('min'),
@@ -69,11 +77,26 @@ function filtersFromParams(params: URLSearchParams): MediaFilters {
 
 function paramsWithFilters(params: URLSearchParams, filters: MediaFilters): URLSearchParams {
   const next = new URLSearchParams(params)
-  for (const key of ['genre', 'format', 'status', 'from', 'to', 'min']) next.delete(key)
+  for (const key of [
+    'genre',
+    'format',
+    'status',
+    'nogenre',
+    'noformat',
+    'nostatus',
+    'from',
+    'to',
+    'min',
+  ]) {
+    next.delete(key)
+  }
 
   for (const g of filters.genres ?? []) next.append('genre', g)
   for (const f of filters.formats ?? []) next.append('format', f)
   for (const s of filters.statuses ?? []) next.append('status', s)
+  for (const g of filters.genresExcluded ?? []) next.append('nogenre', g)
+  for (const f of filters.formatsExcluded ?? []) next.append('noformat', f)
+  for (const s of filters.statusesExcluded ?? []) next.append('nostatus', s)
   if (filters.yearFrom != null) next.set('from', String(filters.yearFrom))
   if (filters.yearTo != null) next.set('to', String(filters.yearTo))
   if (filters.scoreFrom != null) next.set('min', String(filters.scoreFrom))
@@ -347,7 +370,7 @@ function FilteredResults({
   sort: SortKey
 }) {
   const { data, isLoading } = useMediaSearch({ kind, sort, perPage: 40, ...filters })
-  const media = data?.media ?? []
+  const media = applyExclusions(data?.media ?? [], filters)
 
   const title = [
     (filters.genres ?? []).join(' + '),

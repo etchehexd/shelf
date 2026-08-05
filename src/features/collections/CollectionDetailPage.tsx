@@ -39,8 +39,8 @@ import {
 import {
   Button,
   buttonClasses,
-  CommunityScore,
   CoverImage,
+  CoverSkeleton,
   EmptyState,
   IconButton,
   Input,
@@ -49,6 +49,7 @@ import {
   Pill,
   Popover,
   Rating,
+  RowSkeleton,
   SearchInput,
   toast,
 } from '@/design'
@@ -737,10 +738,19 @@ function GridLayout({ items, map, collectionId, selecting, picked, onPick }: Lay
     <div className="grid-stagger poster-grid">
       {items.map((item, i) => {
         const media = map.get(item.mediaId)
-        if (!media) return null
+        // A row whose artwork has not landed yet is still a row.
+        //
+        // Returning null here is why a collection could say "5 titles" and
+        // render four: the count comes from the stored items, the render came
+        // from whichever of them the media batch had resolved, and the two
+        // disagreed for as long as a request was in flight — or forever, if
+        // upstream no longer knows that id. A placeholder keeps the two
+        // numbers honest and makes a genuinely missing title visible instead
+        // of silently deleting it from view.
+        if (!media) return <CoverSkeleton key={item.id} />
         return (
           <div key={item.id} className="group/item relative">
-            <MediaCard media={media} index={i} />
+            <MediaCard media={media} showCommunity={false} index={i} />
             {selecting ? (
               <SelectOverlay checked={picked.has(item.id)} onToggle={() => toggle(item.id)} />
             ) : (
@@ -767,7 +777,7 @@ function RankedLayout({ items, map, collectionId, selecting, picked, onPick }: L
     <ol className="space-y-4">
       {items.map((item, index) => {
         const media = map.get(item.mediaId)
-        if (!media) return null
+        if (!media) return <RowSkeleton key={item.id} />
         const entry = entries[item.mediaId]
 
         return (
@@ -821,12 +831,10 @@ function RankedLayout({ items, map, collectionId, selecting, picked, onPick }: L
                 <ItemNote item={item} />
               </div>
 
-              <CommunityScore
-                value={media.averageScore}
-                variant="pill"
-                size="sm"
-                className="hidden shrink-0 md:inline-flex"
-              />
+              {/* No community score on a collection. A collection is an
+                  argument you are making; the crowd's number is not part of
+                  it, and next to your own stars it just makes you defend a
+                  choice you already made. */}
               <Rating
                 value={entry?.score ?? null}
                 size="sm"
@@ -856,7 +864,7 @@ function ShowcaseLayout({ items, map, collectionId, selecting, picked, onPick }:
     <div className="space-y-16 md:space-y-20">
       {items.map((item, index) => {
         const media = map.get(item.mediaId)
-        if (!media) return null
+        if (!media) return <RowSkeleton key={item.id} />
         const entry = entries[item.mediaId]
         const flip = index % 2 === 1
 
@@ -872,11 +880,7 @@ function ShowcaseLayout({ items, map, collectionId, selecting, picked, onPick }:
               to={`/media/${media.id}`}
               className={cn('frame-lift relative w-32 sm:w-full', flip && 'md:order-2')}
             >
-              <CoverImage src={media.coverImageLarge} alt="" color={media.color}>
-                <span className="absolute top-2 left-2 z-10">
-                  <CommunityScore value={media.averageScore} variant="badge" />
-                </span>
-              </CoverImage>
+              <CoverImage src={media.coverImageLarge} alt="" color={media.color} />
             </Link>
 
             <div className={cn('min-w-0', flip && 'md:order-1 md:text-right')}>
@@ -928,7 +932,7 @@ function SelectOverlay({ checked, onToggle }: { checked: boolean; onToggle: () =
       aria-label={checked ? 'Deselect' : 'Select'}
       onClick={onToggle}
       className={cn(
-        'absolute inset-0 z-20 flex items-start justify-end rounded-[4px] p-2 transition-colors duration-200',
+        'absolute inset-0 z-20 flex items-start justify-end rounded-art p-2 transition-colors duration-200',
         checked ? 'bg-accent/22' : 'bg-transparent hover:bg-canvas/25',
       )}
     >
@@ -1091,6 +1095,10 @@ function SortableTile({
     id: item.id,
   })
 
+  // Reordering is the one place a placeholder would be worse: you cannot
+  // meaningfully drag a row you cannot see, and a gap in the sortable list
+  // would let a drop land on an index that does not correspond to what is on
+  // screen. Skipped here and only here.
   if (!media) return null
 
   return (

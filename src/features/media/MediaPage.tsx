@@ -494,7 +494,7 @@ function Body({ media }: { media: Media }) {
                     src={c.image ?? ''}
                     alt=""
                     loading="lazy"
-                    className="size-11 shrink-0 rounded-[3px] bg-surface-2 object-cover"
+                    className="size-11 shrink-0 rounded-art bg-surface-2 object-cover"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-label font-medium text-ink">{c.name}</p>
@@ -507,7 +507,7 @@ function Body({ media }: { media: Media }) {
                         src={c.voiceActor.image ?? ''}
                         alt=""
                         loading="lazy"
-                        className="size-11 shrink-0 rounded-[3px] bg-surface-2 object-cover"
+                        className="size-11 shrink-0 rounded-art bg-surface-2 object-cover"
                       />
                     </div>
                   )}
