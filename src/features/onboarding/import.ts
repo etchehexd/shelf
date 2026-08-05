@@ -7,8 +7,11 @@ import type { EntryStatus, LibraryEntry } from '@/data/store/types'
  * Bringing an existing library in.
  *
  * This is the *only* place in the product that knows other tracking sites
- * exist. It runs during first-run onboarding and nowhere else — once someone
- * has a shelf, the app never mentions where it came from again.
+ * exist. It has exactly two callers, both of them `ImportSources`: first-run
+ * onboarding, and the Import button in the Library. Everywhere else — including
+ * the confirmation that follows an import — is written as though these services
+ * do not exist, and nothing that came in this way is ever labelled with where
+ * it came from.
  *
  * Two routes, because they are the two people actually have:
  *

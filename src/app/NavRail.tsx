@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { NavLink } from 'react-router'
-import { Compass, Home, Layers, Library, PanelLeft, Trophy, User } from 'lucide-react'
+import { CalendarDays, Compass, Home, Layers, Library, PanelLeft, Trophy, User } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Tooltip, useMediaQuery } from '@/design'
 import { usePrefs } from '@/data/store/prefs'
@@ -16,6 +16,10 @@ interface Destination {
 const NAV: Destination[] = [
   { to: '/', label: 'Home', icon: Home, end: true },
   { to: '/library', label: 'Library', icon: Library },
+  // Directly under Library, because it is the question you ask *of* a library:
+  // what of mine is on this week. Filed anywhere further down and it reads as
+  // a browse surface, which is Discover's job.
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/rankings', label: 'Rankings', icon: Trophy },
   { to: '/collections', label: 'Collections', icon: Layers },
   { to: '/discover', label: 'Discover', icon: Compass },

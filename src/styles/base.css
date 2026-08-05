@@ -287,6 +287,88 @@
     border: 1px solid transparent;
     border-radius: var(--radius-md);
   }
+
+  /* ---------------------------------------------------------------- range --
+     The app's one slider.
+
+     Written by hand because the native control is the last widget browsers
+     still style entirely themselves, and the two engines disagree about
+     everything: the track, the thumb, whether the track is filled behind the
+     thumb, and whether the thumb is centred on it. The filled half is painted
+     as a gradient on the track and driven by a `--fill` percentage the
+     component sets, which is the only technique that works identically in
+     both without a wrapper element faking the track.
+
+     `-webkit-` and `-moz-` blocks cannot be merged: an unrecognised selector
+     in a list invalidates the whole rule, so a shared declaration written once
+     would silently apply in neither. */
+  .range {
+    appearance: none;
+    width: 100%;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--accent) 0 var(--fill, 0%),
+      var(--surface-3) var(--fill, 0%) 100%
+    );
+  }
+
+  .range::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--accent) 0 var(--fill, 0%),
+      var(--surface-3) var(--fill, 0%) 100%
+    );
+  }
+
+  .range::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    /* Half the thumb minus half the track: WebKit puts the thumb's box on the
+       track's top edge, so without this it rides above the line it controls. */
+    margin-top: -6px;
+    border-radius: 999px;
+    background: var(--accent);
+    border: 2px solid var(--surface);
+    box-shadow: var(--shadow-xs);
+    transition: transform 160ms var(--ease-spring);
+  }
+
+  .range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--accent);
+    border: 2px solid var(--surface);
+    box-shadow: var(--shadow-xs);
+    transition: transform 160ms var(--ease-spring);
+  }
+
+  .range:hover::-webkit-slider-thumb,
+  .range:focus-visible::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+
+  .range:hover::-moz-range-thumb,
+  .range:focus-visible::-moz-range-thumb {
+    transform: scale(1.15);
+  }
+
+  .range:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 999px;
+  }
 }
 
 @layer utilities {

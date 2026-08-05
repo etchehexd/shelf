@@ -1,13 +1,12 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
-import { ArrowRight, Check, Download, Layers, Search, Upload } from 'lucide-react'
-import { Button, Eyebrow, Input, Rule, SegmentedControl, useScrollLock } from '@/design'
+import { ArrowRight, Check, Download, Layers, Search } from 'lucide-react'
+import { Button, Eyebrow, Rule, useScrollLock } from '@/design'
 import { useLibrary } from '@/data/store/library'
 import { usePrefs } from '@/data/store/prefs'
 import { useAuth } from '@/data/supabase/auth'
-import { cn } from '@/lib/cn'
-import { importFromAniList, importFromMal, type ImportProgress } from './import'
+import { ImportSources } from './ImportSources'
 
 /**
  * First run.
@@ -182,8 +181,6 @@ function EmptyShelfMark() {
 
 /* ----------------------------------------------------------------- import -- */
 
-type Source = 'anilist' | 'mal'
-
 function ImportStep({
   onBack,
   onFinish,
@@ -191,30 +188,7 @@ function ImportStep({
   onBack: () => void
   onFinish: (to?: string) => void
 }) {
-  const importEntries = useLibrary((s) => s.importEntries)
-
-  const [source, setSource] = useState<Source>('anilist')
-  const [username, setUsername] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [progress, setProgress] = useState<ImportProgress | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [added, setAdded] = useState<number | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const run = async (work: () => Promise<Awaited<ReturnType<typeof importFromAniList>>>) => {
-    setBusy(true)
-    setError(null)
-    setProgress({ ratio: null, message: 'Starting…' })
-    try {
-      const entries = await work()
-      setAdded(importEntries(entries))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'That import failed. Try again in a minute.')
-      setProgress(null)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   if (added != null) {
     return (
@@ -255,102 +229,21 @@ function ImportStep({
       </p>
 
       <div className="mt-9">
-        <SegmentedControl
-          aria-label="Import source"
-          value={source}
-          onChange={(next) => {
-            setSource(next)
-            setError(null)
-          }}
-          segments={[
-            { value: 'anilist' as Source, label: 'AniList' },
-            { value: 'mal' as Source, label: 'MyAnimeList' },
-          ]}
-        />
+        <ImportSources onDone={setAdded} />
       </div>
-
-      <div className="mt-7">
-        {source === 'anilist' ? (
-          <form
-            className="flex flex-wrap items-end gap-3"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void run(() => importFromAniList(username, setProgress))
-            }}
-          >
-            <label className="min-w-0 flex-1">
-              <span className="mb-1.5 block text-label font-medium text-ink">Your username</span>
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="username"
-                autoComplete="off"
-                disabled={busy}
-              />
-            </label>
-            <Button type="submit" variant="primary" size="md" loading={busy} disabled={!username.trim()}>
-              Import
-            </Button>
-          </form>
-        ) : (
-          <div className="space-y-3">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xml,text/xml,application/xml"
-              className="sr-only"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                void run(async () => importFromMal(await file.text(), setProgress))
-              }}
-            />
-            <Button
-              icon={<Upload className="size-4" />}
-              size="md"
-              loading={busy}
-              onClick={() => fileRef.current?.click()}
-            >
-              Choose your export file
-            </Button>
-            <p className="text-meta text-ink-3">
-              On MyAnimeList: Profile → Export. Unzip it and pick the .xml.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {progress && busy && (
-        <div className="mt-7 max-w-md">
-          <div className="h-1 overflow-hidden rounded-full bg-surface-3">
-            <div
-              className={cn(
-                'h-full rounded-full bg-accent transition-[width] duration-500 ease-[var(--ease-out-expo)]',
-                progress.ratio == null && 'w-1/4 animate-pulse',
-              )}
-              style={progress.ratio != null ? { width: `${progress.ratio * 100}%` } : undefined}
-            />
-          </div>
-          <p className="font-mono-num mt-2.5 text-meta text-ink-3">{progress.message}</p>
-        </div>
-      )}
-
-      {error && <p className="mt-6 max-w-md text-body text-dropped">{error}</p>}
 
       <div className="mt-10 flex items-center gap-6">
         <button
           type="button"
           onClick={onBack}
-          disabled={busy}
-          className="label-cat label-cat-plain hover:text-ink disabled:opacity-45"
+          className="label-cat label-cat-plain hover:text-ink"
         >
           Back
         </button>
         <button
           type="button"
           onClick={() => onFinish()}
-          disabled={busy}
-          className="label-cat label-cat-plain hover:text-ink disabled:opacity-45"
+          className="label-cat label-cat-plain hover:text-ink"
         >
           Skip
         </button>

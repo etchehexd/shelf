@@ -19,6 +19,7 @@ const MediaPage = lazy(() => import('@/features/media/MediaPage'))
 const CollectionsPage = lazy(() => import('@/features/collections/CollectionsPage'))
 const CollectionDetailPage = lazy(() => import('@/features/collections/CollectionDetailPage'))
 const DiscoverPage = lazy(() => import('@/features/discover/DiscoverPage'))
+const CalendarPage = lazy(() => import('@/features/calendar/CalendarPage'))
 const ProfilePage = lazy(() => import('@/features/profile/ProfilePage'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
 const AuthPage = lazy(() => import('@/features/auth/AuthPage'))
@@ -85,6 +86,14 @@ export function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <DiscoverPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="calendar"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <CalendarPage />
                   </Suspense>
                 }
               />

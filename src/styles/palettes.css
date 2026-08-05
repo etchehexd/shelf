@@ -143,6 +143,81 @@
   --accent-ink: #1a1305;
 }
 
+/* ------------------------------------------------------------------ sand --
+   Ember with the fire taken out — a warm neutral for anyone who wants a tint
+   rather than a color. The quiet counterpart to citrus. */
+[data-palette='sand'] {
+  --accent: #8a6a45;
+  --accent-hover: #705435;
+  --accent-quiet: #f1e9dd;
+  --accent-line: #d8c8b0;
+  --accent-ink: #fffdf9;
+}
+
+[data-theme='dark'][data-palette='sand'] {
+  --accent: #cdac7f;
+  --accent-hover: #e0c199;
+  --accent-quiet: #241f18;
+  --accent-line: #443c30;
+  --accent-ink: #171107;
+}
+
+/* ------------------------------------------------------------------ teal -- */
+[data-palette='teal'] {
+  --accent: #14706b;
+  --accent-hover: #0f5854;
+  --accent-quiet: #dcefed;
+  --accent-line: #a8d3cf;
+  --accent-ink: #f9ffff;
+}
+
+[data-theme='dark'][data-palette='teal'] {
+  --accent: #4fc2b8;
+  --accent-hover: #6fd7cd;
+  --accent-quiet: #132320;
+  --accent-line: #29453f;
+  --accent-ink: #041917;
+}
+
+/* ----------------------------------------------------------------- slate --
+   Sea desaturated to the point of being chrome. Sits between `sea` and `ink`:
+   still a color, but one that never competes with artwork. */
+[data-palette='slate'] {
+  --accent: #4a5f7a;
+  --accent-hover: #384b62;
+  --accent-quiet: #e6eaf0;
+  --accent-line: #bfc9d6;
+  --accent-ink: #fbfcfe;
+}
+
+[data-theme='dark'][data-palette='slate'] {
+  --accent: #93aac6;
+  --accent-hover: #adc0d8;
+  --accent-quiet: #1a1e24;
+  --accent-line: #333c48;
+  --accent-ink: #0a0e14;
+}
+
+/* --------------------------------------------------------------- crimson --
+   Deliberately kept clear of `--st-dropped`, which is the only other red the
+   product uses. Dropped is a muted brick; this is saturated and bright, so a
+   crimson accent on a dropped title still reads as two different things. */
+[data-palette='crimson'] {
+  --accent: #a82a35;
+  --accent-hover: #8b1f29;
+  --accent-quiet: #f8e2e4;
+  --accent-line: #e6b7bb;
+  --accent-ink: #fffafa;
+}
+
+[data-theme='dark'][data-palette='crimson'] {
+  --accent: #ef7078;
+  --accent-hover: #ff8b92;
+  --accent-quiet: #2b1618;
+  --accent-line: #4e2a2d;
+  --accent-ink: #1d0709;
+}
+
 /**
  * Repainting is animated, once, at the root.
  *

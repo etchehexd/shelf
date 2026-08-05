@@ -21,7 +21,25 @@
           theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
         }
         document.documentElement.dataset.theme = theme
-        document.documentElement.dataset.palette = state?.palette || 'ember'
+        var palette = state?.palette || 'ember'
+        document.documentElement.dataset.palette = palette
+
+        // A named palette is a stylesheet and needs nothing else. `custom` has
+        // no stylesheet to select, so its five variables are written here too —
+        // otherwise every reload shows one frame of ember before the store
+        // rehydrates. The bands below are a copy of `customAccent` in
+        // src/design/theme.ts, which is the source of truth; if they ever
+        // disagree, that file wins and this one is the bug.
+        if (palette === 'custom') {
+          var h = ((Math.round(state?.accentHue ?? 24) % 360) + 360) % 360
+          var s = document.documentElement.style
+          var dark = theme !== 'light'
+          s.setProperty('--accent', 'hsl(' + h + (dark ? ' 78% 65%)' : ' 58% 36%)'))
+          s.setProperty('--accent-hover', 'hsl(' + h + (dark ? ' 86% 73%)' : ' 62% 28%)'))
+          s.setProperty('--accent-quiet', 'hsl(' + h + (dark ? ' 38% 12%)' : ' 60% 93%)'))
+          s.setProperty('--accent-line', 'hsl(' + h + (dark ? ' 32% 26%)' : ' 42% 78%)'))
+          s.setProperty('--accent-ink', 'hsl(' + h + (dark ? ' 55% 8%)' : ' 60% 99%)'))
+        }
       } catch (e) {
         document.documentElement.dataset.theme = 'dark'
         document.documentElement.dataset.palette = 'ember'

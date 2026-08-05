@@ -27,7 +27,8 @@ import { useAuth } from '@/data/supabase/auth'
 import { SignInWall } from '@/features/auth/SignInWall'
 import { useEntriesOfKind, useStatusCounts } from '@/data/store/selectors'
 import { STATUS_ORDER, statusLabel, type EntryStatus, type LibraryEntry } from '@/data/store/types'
-import { MediaCard, MediaRow, ShelfCover } from '@/features/tracking/cards'
+import { MediaCard, MediaRow, MediaRowHeader, ShelfCover } from '@/features/tracking/cards'
+import { ImportButton } from './ImportDialog'
 import { cn } from '@/lib/cn'
 import { pluralize } from '@/lib/format'
 
@@ -178,20 +179,29 @@ export default function LibraryPage() {
               }))}
             />
 
-            <SegmentedControl
-              aria-label="View mode"
-              value={view}
-              onChange={(next) => {
-                patch({ view: next })
-                setDefaultView(next)
-              }}
-              segments={VIEWS.map((v) => ({
-                value: v.value,
-                label: v.label,
-                icon: <v.icon className="size-4" aria-hidden />,
-              }))}
-              iconOnly
-            />
+            <div className="flex items-center gap-2">
+              {/* The one place outside first-run that names another tracker.
+                  It earns the exception the same way onboarding does: you
+                  cannot ask someone for their list from a service without
+                  saying which service — and someone who skipped the import on
+                  day one has, until now, had no way back to it. */}
+              <ImportButton />
+
+              <SegmentedControl
+                aria-label="View mode"
+                value={view}
+                onChange={(next) => {
+                  patch({ view: next })
+                  setDefaultView(next)
+                }}
+                segments={VIEWS.map((v) => ({
+                  value: v.value,
+                  label: v.label,
+                  icon: <v.icon className="size-4" aria-hidden />,
+                }))}
+                iconOnly
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -315,7 +325,7 @@ export default function LibraryPage() {
           />
         )
       ) : view === 'list' ? (
-        <ListView entries={filtered} map={map} />
+        <ListView entries={filtered} map={map} kind={kind} />
       ) : view === 'grid' ? (
         <GridView entries={filtered} map={map} />
       ) : (
@@ -489,9 +499,24 @@ function GridView({ entries, map }: { entries: LibraryEntry[]; map: Map<number, 
   )
 }
 
-function ListView({ entries, map }: { entries: LibraryEntry[]; map: Map<number, MediaSummary> }) {
+/**
+ * The one view in the product that is honestly a table — so it gets a table's
+ * header. Four of these columns are a number in a 10px mono face with nothing
+ * around it; without a label above them, a rank and a relative timestamp are
+ * indistinguishable at a glance.
+ */
+function ListView({
+  entries,
+  map,
+  kind,
+}: {
+  entries: LibraryEntry[]
+  map: Map<number, MediaSummary>
+  kind: MediaKind
+}) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-surface px-5">
+    <div className="rounded-lg border border-line bg-surface px-5">
+      <MediaRowHeader kind={kind} />
       {entries.map((entry, i) => {
         const media = map.get(entry.mediaId)
         return media ? (

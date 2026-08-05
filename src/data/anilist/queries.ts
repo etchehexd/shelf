@@ -161,6 +161,33 @@ export const RECOMMENDATIONS_QUERY = `
   ${MEDIA_CARD_FRAGMENT}
 `
 
+/**
+ * A window of the broadcast schedule.
+ *
+ * Queried by *time*, not by title: upstream's `AiringSchedule` is the only
+ * source that knows a Tuesday has thirty-one episodes on it. The window is
+ * half-open at both ends because `_greater` / `_lesser` are exclusive upstream —
+ * the caller widens by a second rather than losing whatever airs exactly at
+ * midnight.
+ *
+ * The media rides along on the card fragment, so a week of schedule is also a
+ * week of posters and needs no second request to draw.
+ */
+export const AIRING_SCHEDULE_QUERY = `
+  query AiringSchedule($from: Int!, $to: Int!, $page: Int = 1, $perPage: Int = 50) {
+    Page(page: $page, perPage: $perPage) {
+      pageInfo { hasNextPage currentPage }
+      airingSchedules(airingAt_greater: $from, airingAt_lesser: $to, sort: TIME) {
+        id
+        episode
+        airingAt
+        media { ...MediaCard }
+      }
+    }
+  }
+  ${MEDIA_CARD_FRAGMENT}
+`
+
 export const GENRES_QUERY = `
   query Genres {
     GenreCollection

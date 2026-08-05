@@ -70,6 +70,88 @@ export function airingDayShort(airingAt: number): string {
   return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(ts)
 }
 
+/**
+ * "in 3d 4h" / "in 5h 20m" / "in 12m" / "airing now" — for a countdown that is
+ * re-read rather than watched.
+ *
+ * Two units, never three: "in 3d 4h 12m" is a stopwatch, and nobody waiting
+ * three days for an episode is counting its minutes. The last hour is the one
+ * exception worth having, so under an hour it drops to minutes alone.
+ */
+export function countdown(airingAt: number, now = Date.now()): string {
+  const secs = airingAt - Math.floor(now / 1000)
+  if (secs <= 0) return 'airing now'
+
+  const d = Math.floor(secs / 86_400)
+  const h = Math.floor((secs % 86_400) / 3_600)
+  const m = Math.floor((secs % 3_600) / 60)
+
+  if (d > 0) return h > 0 ? `in ${d}d ${h}h` : `in ${d}d`
+  if (h > 0) return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`
+  return `in ${Math.max(1, m)}m`
+}
+
+/**
+ * The Monday-based week `ts` falls in, as a local-midnight timestamp.
+ *
+ * Monday rather than Sunday because a broadcast week is discussed that way —
+ * "this season's Monday slot" — and because it keeps the weekend adjacent
+ * instead of splitting it across two columns.
+ */
+export function startOfWeek(ts: number): number {
+  const d = new Date(ts)
+  d.setHours(0, 0, 0, 0)
+  // getDay(): 0 = Sunday. Shift so Monday is 0 and Sunday is 6.
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  return d.getTime()
+}
+
+/** The seven local-midnight timestamps of the week starting at `weekStart`. */
+export function weekDays(weekStart: number): number[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart)
+    // Adding days on the Date rather than adding 86.4M milliseconds: a week
+    // containing a DST change is 167 or 169 hours long, and arithmetic on the
+    // epoch quietly produces a day that starts at 23:00 the evening before.
+    d.setDate(d.getDate() + i)
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  })
+}
+
+/** "Mon" / "Tue" — the column heads of a week. */
+export function weekdayShort(ts: number): string {
+  return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(ts)
+}
+
+/** "4 Aug" — the date under a column head. */
+export function dayMonth(ts: number): string {
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(ts)
+}
+
+/**
+ * A week's name: "Aug 3 – 9", "Jul 28 – Aug 3", "Dec 30, 2025 – Jan 5, 2026".
+ *
+ * `formatRange` rather than two formats glued with a dash. It is the only thing
+ * that knows *where* the shared part of a range goes, and the answer is
+ * per-locale: hand-building "3–Aug 9" from a day number and a formatted date is
+ * how this read before, which is correct in exactly the locales that put the
+ * day first.
+ */
+export function weekRangeLabel(weekStart: number): string {
+  const days = weekDays(weekStart)
+  const first = days[0]
+  const last = days[6]
+
+  const crossesYear = new Date(first).getFullYear() !== new Date().getFullYear()
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    ...(crossesYear ? { year: 'numeric' } : {}),
+  }).formatRange(first, last)
+}
+
 export function timeLabel(ts: number): string {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(ts)
 }

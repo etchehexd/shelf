@@ -16,7 +16,13 @@ import {
 } from '@/design'
 import { usePrefetchMedia } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
-import { totalUnits, unitName, type MediaSummary } from '@/data/anilist/types'
+import {
+  totalUnits,
+  unitName,
+  unitNamePlural,
+  type MediaKind,
+  type MediaSummary,
+} from '@/data/anilist/types'
 import { usePrefs } from '@/data/store/prefs'
 import { useRank } from '@/data/store/selectors'
 import { statusLabel, type LibraryEntry } from '@/data/store/types'
@@ -455,7 +461,72 @@ export function MediaCard({
   )
 }
 
-/* --------------------------------------------------------------- list row -- */
+/* --------------------------------------------------------------- list row -- *
+ *
+ * The list view is the one place in the product that is honestly a table, and a
+ * table needs a header. The columns below and the header above are declared in
+ * the same file, from the same width tokens, because they are one object split
+ * across two components and nothing else keeps them honest.
+ *
+ * Every column is fixed-width, right-packed, and *always rendered* — a title
+ * with no known episode count draws an empty progress cell rather than omitting
+ * it. Omitting it was fine while the widths were invisible; under a header it
+ * would slide four columns left on one row out of ten.
+ */
+
+const COL = {
+  index: 'w-6',
+  progress: 'w-40',
+  /** The stepper sizes itself from its contents; the column pins it. */
+  stepper: 'w-34',
+  score: 'w-24',
+  rank: 'w-8',
+  updated: 'w-12',
+  /** Matches the trailing IconButton, so the header's last column is empty. */
+  menu: 'w-8',
+} as const
+
+/** Only visible from the breakpoint its column appears at. */
+const COL_AT = {
+  index: 'hidden sm:block',
+  progress: 'hidden lg:block',
+  stepper: 'hidden md:block',
+  score: 'hidden sm:block',
+  rank: 'hidden lg:block',
+  updated: 'hidden xl:block',
+  menu: 'block',
+} as const
+
+/**
+ * The header for a column of `MediaRow`s.
+ *
+ * Sticky, because a library scrolled past its first screen is a table whose
+ * columns you can no longer name — which is the state the list view shipped in.
+ */
+export function MediaRowHeader({ kind }: { kind: MediaKind }) {
+  const cell = 'text-[0.5rem] font-semibold tracking-[0.16em] text-ink-3/70 uppercase'
+
+  return (
+    // `-mx-5 px-5` so the rule under it reaches the panel's edges. Its own top
+    // corners are rounded to match, because the panel can no longer clip them:
+    // `overflow-hidden` on an ancestor silently kills `position: sticky`.
+    <div className="sticky top-0 z-20 -mx-5 flex items-center gap-4 rounded-t-lg border-b border-line bg-surface/95 px-5 py-2 backdrop-blur-md">
+      <span className={cn(COL.index, COL_AT.index, 'shrink-0')} aria-hidden />
+
+      <span className={cn(cell, 'min-w-0 flex-1')}>Title</span>
+
+      <span className={cn(COL.progress, COL_AT.progress, cell, 'shrink-0')}>Progress</span>
+      <span className={cn(COL.stepper, COL_AT.stepper, cell, 'shrink-0 text-center')}>
+        {unitNamePlural(kind)}
+      </span>
+      <span className={cn(COL.score, COL_AT.score, cell, 'shrink-0 text-right')}>Your score</span>
+      <span className={cn(COL.rank, COL_AT.rank, cell, 'shrink-0 text-right')}>Rank</span>
+      <span className={cn(COL.updated, COL_AT.updated, cell, 'shrink-0 text-right')}>Updated</span>
+
+      <span className={cn(COL.menu, 'shrink-0')} aria-hidden />
+    </div>
+  )
+}
 
 export function MediaRow({
   media,
@@ -479,11 +550,15 @@ export function MediaRow({
       onContextMenu={menu.open}
     >
       {/* The row's own index, in the catalog voice. */}
-      {index != null && (
-        <span className="font-mono-num hidden w-6 shrink-0 text-right text-[0.625rem] text-ink-3 sm:block">
-          {String(index + 1).padStart(2, '0')}
-        </span>
-      )}
+      <span
+        className={cn(
+          'font-mono-num shrink-0 text-right text-[0.625rem] text-ink-3',
+          COL.index,
+          COL_AT.index,
+        )}
+      >
+        {index != null ? String(index + 1).padStart(2, '0') : ''}
+      </span>
 
       <Link
         to={`/media/${media.id}`}
@@ -509,14 +584,12 @@ export function MediaRow({
         </div>
       </Link>
 
-      {entry && total != null && (
-        <div className="hidden w-40 shrink-0 lg:block">
-          <ProgressBar value={entry.progress} max={total} />
-        </div>
-      )}
+      <div className={cn('shrink-0', COL.progress, COL_AT.progress)}>
+        {entry && total != null && <ProgressBar value={entry.progress} max={total} />}
+      </div>
 
-      {entry && (
-        <div className="hidden shrink-0 md:block">
+      <div className={cn('shrink-0 text-center', COL.stepper, COL_AT.stepper)}>
+        {entry && (
           <ProgressStepper
             value={entry.progress}
             max={total}
@@ -524,8 +597,8 @@ export function MediaRow({
             onChange={setProgress}
             size="sm"
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Your score only.
           The row used to carry a YOURS column and an EVERYONE column side by
@@ -533,11 +606,14 @@ export function MediaRow({
           and two scores in one gutter is the confusion the star treatment
           exists to prevent. Community scores now live on exactly two surfaces:
           Discover, where they are the only signal you have, and the media page,
-          where there is room to explain them. */}
-      <div className="hidden w-24 shrink-0 flex-col items-end gap-1 sm:flex">
-        <span className="text-[0.5rem] font-semibold tracking-[0.16em] text-ink-3/70 uppercase">
-          Your score
-        </span>
+          where there is room to explain them.
+
+          The column's own eyebrow used to live here, once per row — forty
+          copies of the words YOUR SCORE stacked down the page, which is what a
+          header row is for. */}
+      {/* `sm:flex`, not COL_AT.score's `sm:block` — this is the one cell whose
+          content has to be right-aligned as a flex child rather than as text. */}
+      <div className={cn('hidden shrink-0 justify-end sm:flex', COL.score)}>
         {entry?.score != null ? (
           <Rating value={entry.score} size="xs" />
         ) : (
@@ -545,11 +621,23 @@ export function MediaRow({
         )}
       </div>
 
-      <span className="font-mono-num hidden w-8 shrink-0 text-right text-[0.625rem] text-ink-3 lg:block">
+      <span
+        className={cn(
+          'font-mono-num shrink-0 text-right text-[0.625rem] text-ink-3',
+          COL.rank,
+          COL_AT.rank,
+        )}
+      >
         {rank ? `#${rank}` : '—'}
       </span>
 
-      <span className="font-mono-num hidden w-12 shrink-0 text-right text-[0.625rem] text-ink-3 xl:block">
+      <span
+        className={cn(
+          'font-mono-num shrink-0 text-right text-[0.625rem] text-ink-3',
+          COL.updated,
+          COL_AT.updated,
+        )}
+      >
         {entry ? relativeShort(entry.updatedAt) : ''}
       </span>
 

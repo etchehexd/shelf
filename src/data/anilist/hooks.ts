@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { anilist } from './client'
 import {
+  AIRING_SCHEDULE_QUERY,
   GENRES_QUERY,
   MEDIA_BY_IDS_QUERY,
   MEDIA_DETAIL_QUERY,
@@ -21,6 +22,7 @@ export const mediaKeys = {
   search: (params: unknown) => ['media-search', params] as const,
   recommendations: (id: number) => ['media-recs', id] as const,
   genres: () => ['genres'] as const,
+  airing: (from: number, to: number) => ['airing', from, to] as const,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -383,6 +385,73 @@ export function useRecommendations(id: number | null | undefined, perPage = 16) 
       return data.Media.recommendations.nodes
         .filter((n) => n.mediaRecommendation?.id)
         .map((n) => ({ rating: n.rating ?? 0, media: normalizeSummary(n.mediaRecommendation) }))
+    },
+  })
+}
+
+/* ---------------------------------------------------------------- airing -- */
+
+export interface AiringSlot {
+  /** Upstream's schedule id — stable, and unique per episode broadcast. */
+  id: number
+  episode: number
+  /** Unix **seconds**, as upstream reports it. */
+  airingAt: number
+  media: MediaSummary
+}
+
+/**
+ * Upstream caps a page at 50 and a busy week runs to several hundred episodes,
+ * so the window is walked rather than fetched. The ceiling is a real one: it
+ * bounds a single render at ten requests instead of however many a season
+ * happens to need, and a week that genuinely overflows it loses the tail of
+ * Sunday rather than hanging the page.
+ */
+const AIRING_MAX_PAGES = 10
+
+/**
+ * Every episode broadcasting inside a window, oldest first.
+ *
+ * `from` and `to` are millisecond timestamps because that is what the calendar
+ * counts in; the conversion to upstream's seconds happens here so no screen
+ * holds two units at once. Both bounds are nudged outward by a second, since
+ * upstream's comparisons are exclusive and a show airing exactly at midnight
+ * belongs to somebody's day.
+ */
+export function useAiringSchedule(from: number, to: number, enabled = true) {
+  const fromSec = Math.floor(from / 1000) - 1
+  const toSec = Math.ceil(to / 1000) + 1
+
+  return useQuery({
+    queryKey: mediaKeys.airing(fromSec, toSec),
+    enabled,
+    // The schedule for a given week doesn't move once it's known. Paging back
+    // and forth across weeks should cost nothing after the first visit.
+    staleTime: 30 * 60 * 1000,
+    queryFn: async ({ signal }) => {
+      const slots: AiringSlot[] = []
+
+      for (let page = 1; page <= AIRING_MAX_PAGES; page += 1) {
+        const data = await anilist<{
+          Page: {
+            pageInfo: { hasNextPage: boolean }
+            airingSchedules: { id: number; episode: number; airingAt: number; media: RawMedia | null }[]
+          }
+        }>(AIRING_SCHEDULE_QUERY, { from: fromSec, to: toSec, page, perPage: 50 }, signal)
+
+        for (const row of data.Page.airingSchedules ?? []) {
+          if (!row?.media?.id) continue
+          const media = normalizeSummary(row.media)
+          // The app filters adult titles everywhere else; a schedule is not the
+          // place to make an exception, least of all an unasked-for one.
+          if (media.isAdult) continue
+          slots.push({ id: row.id, episode: row.episode, airingAt: row.airingAt, media })
+        }
+
+        if (!data.Page.pageInfo?.hasNextPage) break
+      }
+
+      return slots
     },
   })
 }

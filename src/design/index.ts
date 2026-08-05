@@ -80,9 +80,11 @@ export {
 export {
   useResolvedTheme,
   applyTheme,
-  applyPalette,
+  paintAccent,
+  customAccent,
   systemTheme,
   PALETTES,
+  CUSTOM_HUE_DEFAULT,
   type PaletteId,
 } from './theme'
 

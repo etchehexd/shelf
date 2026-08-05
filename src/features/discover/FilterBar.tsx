@@ -78,13 +78,18 @@ function yearOptions(): { label: string; from: number; to: number }[] {
   return [...recent, ...decades, { label: 'Before 1980', from: 1900, to: 1979 }]
 }
 
-const SCORES = [
-  { label: 'Any', from: undefined },
-  { label: '9.0+', from: 9 },
-  { label: '8.0+', from: 8 },
-  { label: '7.0+', from: 7 },
-  { label: '6.0+', from: 6 },
-] as const
+/**
+ * The floor of the score filter, and its step.
+ *
+ * It starts at 5 rather than 0 because the bottom half of the range is not a
+ * filter anyone sets: barely anything upstream scores under 50, so five of the
+ * ten stops on a 0–10 slider would have returned the same results as "any".
+ * The one real position below the useful band is *no constraint at all*, and
+ * that lives at the left end as its own stop.
+ */
+const SCORE_MIN = 5
+const SCORE_MAX = 9.5
+const SCORE_STEP = 0.5
 
 export type TriState = 'off' | 'include' | 'exclude'
 
@@ -269,14 +274,10 @@ export function FilterBar({ kind, filters, onChange, sort, onSortChange, showSor
               </Axis>
 
               <Axis title="Community score" last>
-                {SCORES.map((s) => (
-                  <PickChip
-                    key={s.label}
-                    label={s.label}
-                    active={filters.scoreFrom === s.from}
-                    onClick={() => onChange({ ...filters, scoreFrom: s.from })}
-                  />
-                ))}
+                <ScoreSlider
+                  value={filters.scoreFrom}
+                  onChange={(scoreFrom) => onChange({ ...filters, scoreFrom })}
+                />
               </Axis>
 
               <div className="sticky bottom-0 -mx-4 -mb-4 mt-5 flex items-center justify-between gap-3 border-t border-line bg-surface px-4 py-3">
@@ -401,6 +402,72 @@ function TriChip({
       {state === 'exclude' && <Minus className="size-3" strokeWidth={3} aria-hidden />}
       {label}
     </button>
+  )
+}
+
+/**
+ * The score floor, as a slider.
+ *
+ * It was five chips — Any, 9.0+, 8.0+, 7.0+, 6.0+ — which is a slider with four
+ * of its stops removed and no way to ask for 8.5. A range is a range; the
+ * control should be one, and the half-point stops are the ones people actually
+ * want, because upstream's scores cluster hard between 7 and 8.5.
+ *
+ * The far-left position is "any", not "0.0+", and it is a real stop rather
+ * than a checkbox beside the track: `scoreFrom: undefined` and
+ * `scoreFrom: 0` mean the same thing to the query but very different things to
+ * the chip row outside the panel, which should say nothing at all when the
+ * filter is off.
+ */
+function ScoreSlider({
+  value,
+  onChange,
+}: {
+  value: number | undefined
+  onChange: (next: number | undefined) => void
+}) {
+  const steps = Math.round((SCORE_MAX - SCORE_MIN) / SCORE_STEP) + 1
+  // Position 0 is "any"; 1…steps are the real floors.
+  const position = value == null ? 0 : Math.round((value - SCORE_MIN) / SCORE_STEP) + 1
+  const fill = (position / steps) * 100
+
+  return (
+    <div className="w-full pt-1">
+      <div className="mb-2 flex items-baseline justify-between gap-4">
+        <span className="text-meta text-ink-2">
+          {value == null ? 'Any score' : 'At least'}
+        </span>
+        <span
+          className={cn(
+            'font-mono-num text-title font-semibold tabular-nums',
+            value == null ? 'text-ink-3' : 'text-accent',
+          )}
+        >
+          {value == null ? '—' : `${value.toFixed(1)}+`}
+        </span>
+      </div>
+
+      <input
+        type="range"
+        className="range"
+        min={0}
+        max={steps}
+        step={1}
+        value={position}
+        style={{ '--fill': `${fill}%` } as React.CSSProperties}
+        aria-label="Minimum community score"
+        aria-valuetext={value == null ? 'Any score' : `${value.toFixed(1)} or higher`}
+        onChange={(e) => {
+          const next = Number(e.target.value)
+          onChange(next === 0 ? undefined : SCORE_MIN + (next - 1) * SCORE_STEP)
+        }}
+      />
+
+      <div className="mt-1 flex justify-between text-[0.625rem] text-ink-3">
+        <span>Any</span>
+        <span className="font-mono-num">{SCORE_MAX.toFixed(1)}</span>
+      </div>
+    </div>
   )
 }
 

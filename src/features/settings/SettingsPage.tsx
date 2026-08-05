@@ -174,14 +174,6 @@ export default function SettingsPage() {
             />
           </SettingRow>
 
-          {/* Swatches, not a dropdown of words. "Plum" and "Rose" are the same
-              string to anyone choosing a color, and the point of the control
-              is the color. Picking one repaints immediately — there is no
-              Apply, because the page in front of you *is* the preview. */}
-          <SettingRow label="Accent" description="The color the whole app is painted in.">
-            <PaletteChoice value={prefs.palette} onChange={prefs.setPalette} />
-          </SettingRow>
-
           <SettingRow label="Title language" description="Which title to show first.">
             <Choice<TitleLanguage>
               value={prefs.titleLanguage}
@@ -205,6 +197,33 @@ export default function SettingsPage() {
               ]}
             />
           </SettingRow>
+        </Card>
+
+        {/* The accent gets its own card rather than a right-hand control in a
+            SettingRow. Eleven swatches and a hue slider do not belong in the
+            narrow gutter beside a label — and unlike every other setting on
+            this page, this one is the thing it is describing, so it deserves
+            the width to be looked at. */}
+        <Card padding="compact" className="space-y-5">
+          <div>
+            <p className="text-label font-medium text-ink">Accent</p>
+            <p className="mt-0.5 text-meta text-ink-2">
+              The color the whole app is painted in. Picking one repaints immediately — there is
+              no Apply, because the page in front of you is the preview.
+            </p>
+          </div>
+
+          <PaletteChoice
+            value={prefs.palette}
+            hue={prefs.accentHue}
+            onChange={prefs.setPalette}
+          />
+
+          <HueSlider
+            value={prefs.accentHue}
+            active={prefs.palette === 'custom'}
+            onChange={prefs.setAccentHue}
+          />
         </Card>
       </section>
 
@@ -411,33 +430,49 @@ function SettingRow({
 }
 
 /**
- * The accent picker: seven circles in a row.
+ * The accent picker: every palette as a circle, plus the custom one.
  *
  * A radiogroup rather than a menu, because every option fits on screen and
- * hiding six colors behind a seventh defeats the purpose of choosing by eye.
+ * hiding ten colors behind an eleventh defeats the purpose of choosing by eye.
  * Arrow keys move between them, which is what a radiogroup gets for free and a
  * row of buttons does not.
+ *
+ * The custom swatch is painted with whatever hue the slider is currently on
+ * rather than with a rainbow or a plus sign, so the row never contains a
+ * circle that is lying about what selecting it would do.
  */
 function PaletteChoice({
   value,
+  hue,
   onChange,
 }: {
   value: PaletteId
+  hue: number
   onChange: (next: PaletteId) => void
 }) {
+  const swatchFor = (id: PaletteId): string =>
+    id === 'custom'
+      ? `hsl(${hue} 62% 46%)`
+      : (PALETTES.find((p) => p.id === id)?.swatch ?? 'transparent')
+
+  const options: { id: PaletteId; label: string }[] = [
+    ...PALETTES.map((p) => ({ id: p.id as PaletteId, label: p.label })),
+    { id: 'custom', label: 'Custom' },
+  ]
+
   return (
-    <div role="radiogroup" aria-label="Accent color" className="flex items-center gap-2">
-      {PALETTES.map((p) => {
-        const active = p.id === value
+    <div role="radiogroup" aria-label="Accent color" className="flex flex-wrap items-center gap-2.5">
+      {options.map((option) => {
+        const active = option.id === value
         return (
           <button
-            key={p.id}
+            key={option.id}
             type="button"
             role="radio"
             aria-checked={active}
-            aria-label={p.label}
-            title={p.label}
-            onClick={() => onChange(p.id)}
+            aria-label={option.label}
+            title={option.label}
+            onClick={() => onChange(option.id)}
             className={cn(
               'relative size-7 rounded-full transition-transform duration-200 ease-[var(--ease-spring)]',
               'hover:scale-115 focus-visible:scale-115',
@@ -445,8 +480,14 @@ function PaletteChoice({
             )}
           >
             <span
-              className="absolute inset-0 rounded-full shadow-xs"
-              style={{ background: p.swatch }}
+              className={cn(
+                'absolute inset-0 rounded-full shadow-xs',
+                // The one swatch that isn't a fixed color gets a dashed collar,
+                // so it reads as "and anything else" rather than as a twelfth
+                // preset that happens to look like the eleventh.
+                option.id === 'custom' && 'ring-1 ring-ink-3/60 ring-offset-2 ring-offset-surface',
+              )}
+              style={{ background: swatchFor(option.id) }}
               aria-hidden
             />
             {/* The ring sits outside the swatch rather than on it, so the
@@ -461,6 +502,59 @@ function PaletteChoice({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * The custom accent, as one number.
+ *
+ * Hue only — not a full color picker. Lightness and saturation are what decide
+ * whether an accent can carry white text, sit on a poster, or survive being
+ * used as a 3px spine on charcoal, and every one of the eleven named palettes
+ * was hand-tuned into the same narrow bands for exactly that reason. Handing
+ * those two axes over means handing over the ability to pick an accent the rest
+ * of the product is unreadable against. The hue is the part that is genuinely
+ * taste, so the hue is the part that is yours.
+ */
+function HueSlider({
+  value,
+  active,
+  onChange,
+}: {
+  value: number
+  active: boolean
+  onChange: (next: number) => void
+}) {
+  return (
+    <div className={cn('transition-opacity duration-300', !active && 'opacity-55')}>
+      <div className="mb-2 flex items-baseline justify-between gap-4">
+        <span className="text-meta text-ink-2">
+          {active ? 'Your hue' : 'Or pick your own'}
+        </span>
+        <span className="font-mono-num text-meta text-ink-3 tabular-nums">{value}°</span>
+      </div>
+
+      <input
+        type="range"
+        min={0}
+        max={359}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label="Accent hue"
+        aria-valuetext={`${value} degrees`}
+        // The track is the spectrum itself rather than a filled bar: on a hue
+        // scale the "amount so far" that .range paints is meaningless, and the
+        // colors are the only useful labels the control can have.
+        className="range [&::-moz-range-track]:bg-[var(--hue-track)] [&::-webkit-slider-runnable-track]:bg-[var(--hue-track)]"
+        style={
+          {
+            '--hue-track':
+              'linear-gradient(to right, hsl(0 70% 50%), hsl(60 70% 50%), hsl(120 70% 50%), hsl(180 70% 50%), hsl(240 70% 50%), hsl(300 70% 50%), hsl(360 70% 50%))',
+          } as React.CSSProperties
+        }
+      />
     </div>
   )
 }
