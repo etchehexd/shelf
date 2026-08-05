@@ -86,6 +86,7 @@ function toEntry(
     repeats: Math.max(0, input.repeats),
     note: input.note?.trim() ? input.note.trim() : null,
     favorite: false,
+    favoriteEpisode: null,
     startedAt: input.startedAt,
     finishedAt: input.finishedAt,
     createdAt: input.updatedAt,

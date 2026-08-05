@@ -68,8 +68,8 @@
      and greens (which want white on them) to yellow and orange (which want
      near-black). One shared `--score-ink` would fail 4.5:1 at both ends. */
   --score-9: #2563c9; /* blue        — white ink, 5.4:1 */
-  --score-8: #12674a; /* deep green  — white ink, 7.2:1 */
-  --score-7: #3c8035; /* leaf green  — white ink, 4.6:1 */
+  --score-8: #14663a; /* dark green  — white ink, 7.4:1 */
+  --score-7: #3f9455; /* green       — dark ink,  4.9:1 */
   --score-6: #b07d00; /* yellow      — dark ink,  5.9:1 */
   --score-5: #cc6a12; /* orange      — dark ink,  4.6:1 */
   --score-3: #c0392b; /* red         — white ink, 4.9:1 */
@@ -77,7 +77,7 @@
 
   --score-9-ink: #fbfaf8;
   --score-8-ink: #fbfaf8;
-  --score-7-ink: #fbfaf8;
+  --score-7-ink: #06210f;
   --score-6-ink: #1b1508;
   --score-5-ink: #1e1206;
   --score-3-ink: #fffaf9;
@@ -149,16 +149,16 @@
      a saturated chip on warm charcoal reads as a notification badge. Every
      band is light here, so every band takes near-black ink. */
   --score-9: #5b9bf5;
-  --score-8: #2f9f6d;
-  --score-7: #6cb84f;
+  --score-8: #1f8a53;
+  --score-7: #4cc07a;
   --score-6: #e0b23a;
   --score-5: #ef8f42;
   --score-3: #e2645a;
   --score-0: #a077cf;
 
   --score-9-ink: #0b1424;
-  --score-8-ink: #04160f;
-  --score-7-ink: #0b1706;
+  --score-8-ink: #f2fff8;
+  --score-7-ink: #04210f;
   --score-6-ink: #1b1508;
   --score-5-ink: #1e1206;
   --score-3-ink: #200907;

@@ -41,6 +41,7 @@ import { useTracking } from '@/features/tracking/useTracking'
 import { RankDialog, RatePopover, StatusMenu, StatusDot } from '@/features/tracking/controls'
 import { MediaCard } from '@/features/tracking/cards'
 import { AddToCollectionDialog } from '@/features/tracking/AddToCollectionDialog'
+import { FavoriteEpisodeCard } from '@/features/tracking/FavoriteEpisode'
 import { requireSignIn } from '@/features/auth/gate'
 import { artAccent, artAccentQuiet, artScrim } from '@/lib/accent'
 import { cn } from '@/lib/cn'
@@ -254,6 +255,10 @@ function Hero({ media }: { media: Media }) {
               </button>
             }
           />
+        </div>
+
+        <div className="mt-5 max-w-md">
+          <FavoriteEpisodeCard media={media} />
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-x-7 gap-y-3">

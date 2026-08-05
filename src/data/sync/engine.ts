@@ -1,4 +1,5 @@
 import { supabase } from '@/data/supabase/client'
+import type { LibraryEntry } from '@/data/store/types'
 import { useLibrary } from '@/data/store/library'
 import { deviceId } from '@/lib/ids'
 import { backoffMs, deadLetter, drain, onOutboxChange, retryLater, settle, type Op } from './outbox'
@@ -216,6 +217,7 @@ function applyRemoteEntry(row: Record<string, unknown>) {
         repeats: Number(row.repeats ?? 0),
         note: (row.note as string) ?? null,
         favorite: Boolean(row.favorite),
+        favoriteEpisode: (row.favorite_episode as LibraryEntry['favoriteEpisode']) ?? null,
         startedAt: (row.started_at as string) ?? null,
         finishedAt: (row.finished_at as string) ?? null,
         createdAt: Date.parse(String(row.created_at)) || Date.now(),

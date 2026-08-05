@@ -104,6 +104,7 @@ function toEntry(row: EntryRow): LibraryEntry {
     repeats: row.repeats,
     note: row.note,
     favorite: row.favorite,
+  favoriteEpisode: (row.favorite_episode as LibraryEntry['favoriteEpisode']) ?? null,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: Date.parse(row.created_at) || Date.now(),

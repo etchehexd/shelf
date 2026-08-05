@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { useShallow } from 'zustand/react/shallow'
 import { ArrowRight, Globe, LayoutGrid, Link2, Lock, Plus, Sparkles } from 'lucide-react'
 import { Button, CoverStack, EmptyState, IconButton, Pill } from '@/design'
 import { useMediaMap } from '@/data/anilist/hooks'
@@ -32,8 +33,25 @@ export default function CollectionsPage() {
   const [editing, setEditing] = useState(false)
   const [organizing, setOrganizing] = useState(false)
 
+  /**
+   * Every id in every collection, not just the tracked ones.
+   *
+   * This page fetched artwork for `useTrackedIds()` — the contents of your
+   * *library*. Collections have been able to hold titles you do not track since
+   * the bulk-add rebuild, so any such title resolved to nothing here: its cover
+   * silently vanished from the card while the "5 titles" label kept counting
+   * it. A card showing four covers under a count of five is exactly the
+   * mismatch that makes the number look wrong.
+   */
+  const collectionIds = useLibrary(
+    useShallow((s) => [...new Set(s.collectionItems.map((i) => i.mediaId))]),
+  )
   const trackedIds = useTrackedIds()
-  const { map } = useMediaMap(trackedIds)
+  const allIds = useMemo(
+    () => [...new Set([...trackedIds, ...collectionIds])],
+    [trackedIds, collectionIds],
+  )
+  const { map } = useMediaMap(allIds)
 
   const [featured, ...rest] = collections
 

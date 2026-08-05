@@ -57,7 +57,11 @@ export function Rail({ children, className, gap = 'md', 'aria-label': ariaLabel 
         role="region"
         aria-label={ariaLabel}
         className={cn(
-          'no-scrollbar flex overflow-x-auto scroll-smooth pb-1',
+          // pt-2/-mt-2: overflow-x:auto implies overflow-y:auto, so a card
+          // lifting 6px on hover was being clipped at the top of every rail in
+          // the product. The padding gives it room; the negative margin gives
+          // the space back to the layout.
+          'no-scrollbar flex overflow-x-auto scroll-smooth pt-2 -mt-2 pb-1',
           gap === 'sm' ? 'gap-3' : 'gap-5',
         )}
       >

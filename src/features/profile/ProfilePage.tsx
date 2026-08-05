@@ -695,6 +695,7 @@ function AffinityWidget({
           <BarRow
             key={g.genre}
             label={g.genre}
+            genre={g.genre}
             value={g.averageScore ?? 0}
             max={10}
             readout={g.averageScore ? scoreText(g.averageScore) : '—'}

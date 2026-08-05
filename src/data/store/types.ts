@@ -30,10 +30,27 @@ export interface LibraryEntry {
   repeats: number
   note: string | null
   favorite: boolean
+  /**
+   * The one episode you'd point at.
+   *
+   * Stored denormalized — number *and* name — on purpose. The name comes from a
+   * second catalog that this product does not otherwise depend on and that may
+   * not be configured on the device reading this row, so keeping only
+   * "S2E18" would make the field unreadable to anyone without an episode-data
+   * key. A stored name survives that.
+   */
+  favoriteEpisode: FavoriteEpisode | null
   startedAt: string | null
   finishedAt: string | null
   createdAt: number
   updatedAt: number
+}
+
+export interface FavoriteEpisode {
+  season: number
+  episode: number
+  name: string
+  stillPath: string | null
 }
 
 export interface RankingEntry {

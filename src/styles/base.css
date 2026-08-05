@@ -400,11 +400,19 @@
   /* ------------------------------------------------------------- posters --
      The one poster grid in the product. Every grid of covers uses it, which is
      what stops four pages having four slightly different column widths. */
+  /* The lift needs somewhere to lift *into*.
+     .frame-lift raises a poster 6px on hover. Inside a rail — which clips
+     horizontally with overflow-x: auto, and therefore clips vertically too —
+     or against the top edge of a grid row, those 6px were cut clean off, so
+     hovering a card in the top row sliced its head off. Every container that
+     holds lifting artwork now reserves the space. */
   .poster-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     column-gap: 1.25rem;
     row-gap: 2rem;
+    padding-top: 8px;
+    margin-top: -8px;
   }
 
   @media (min-width: 768px) {

@@ -39,7 +39,11 @@ export function ratingWord(score: number | null | undefined): string {
 
 type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
-const STAR_PX: Record<Size, number> = { xs: 11, sm: 14, md: 18, lg: 26, xl: 34 }
+// Every step up one notch. The poster star row was 11px of accent-colored
+// star against a translucent plate over artwork — technically visible,
+// genuinely straining to read, and the smallest element carrying real meaning
+// anywhere in the product.
+const STAR_PX: Record<Size, number> = { xs: 14, sm: 17, md: 21, lg: 28, xl: 36 }
 const GAP_PX: Record<Size, number> = { xs: 2, sm: 3, md: 4, lg: 6, xl: 8 }
 
 const STAR_PATH =
@@ -86,7 +90,7 @@ function Star({
           transitionDelay: delay ? `${delay}ms` : undefined,
         }}
       >
-        <svg viewBox="0 0 24 24" className="absolute inset-0 size-full text-ink-3/30">
+        <svg viewBox="0 0 24 24" className="absolute inset-0 size-full text-ink-3/55">
           <path d={STAR_PATH} fill="currentColor" />
         </svg>
 
@@ -154,7 +158,10 @@ export function Rating({ value, size = 'sm', art, showValue, plate, className }:
       className={cn(
         'inline-flex items-center',
         plate &&
-          'rounded-full bg-canvas/88 px-1.5 py-1 shadow-[0_1px_3px_rgb(0_0_0/0.3)] backdrop-blur-md',
+          // Near-opaque, with a hairline. At 88% over bright cover art the
+          // plate was tinted by whatever was behind it, so the stars were
+          // fighting the artwork for contrast instead of sitting on a surface.
+          'rounded-full bg-canvas/95 px-2 py-1 ring-1 ring-inset ring-ink/10 shadow-[0_2px_6px_rgb(0_0_0/0.45)] backdrop-blur-md',
         className,
       )}
       style={{ gap: GAP_PX[size] + 4 }}

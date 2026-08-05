@@ -11,6 +11,7 @@ import {
   type Collection,
   type CollectionItem,
   type EntryStatus,
+  type FavoriteEpisode,
   type LibraryEntry,
   type Profile,
   type RankingEntry,
@@ -39,6 +40,7 @@ interface LibraryState {
   addRepeat: (mediaId: number) => void
   restoreEntry: (entry: LibraryEntry) => void
   /** First-run import. Returns how many were new. */
+  setFavoriteEpisode: (mediaId: number, episode: FavoriteEpisode | null) => void
   importEntries: (incoming: LibraryEntry[]) => number
 
   /* rankings */
@@ -118,6 +120,7 @@ const entryOp = (e: LibraryEntry) =>
       repeats: e.repeats,
       note: e.note,
       favorite: e.favorite,
+      favorite_episode: e.favoriteEpisode,
       started_at: e.startedAt,
       finished_at: e.finishedAt,
       device_id: deviceId(),
@@ -260,6 +263,7 @@ export const useLibrary = create<LibraryState>()(
             repeats: 0,
             note: null,
             favorite: false,
+            favoriteEpisode: null,
             startedAt: status === 'current' ? todayISO() : null,
             finishedAt: null,
             createdAt: now,
@@ -410,6 +414,18 @@ export const useLibrary = create<LibraryState>()(
 
           patchEntry(mediaId, { score: next })
           log('score', { mediaId, kind: entry.kind, payload: { from: entry.score, to: next } })
+        },
+
+        setFavoriteEpisode: (mediaId, episode) => {
+          const next = patchEntry(mediaId, { favoriteEpisode: episode })
+          if (!next) return
+          log('note', {
+            mediaId,
+            kind: next.kind,
+            payload: episode
+              ? { to: `S${episode.season}E${episode.episode} — ${episode.name}` }
+              : { to: null },
+          })
         },
 
         setNote: (mediaId, note) => {

@@ -45,6 +45,7 @@ export interface EntryRow {
   repeats: number
   note: string | null
   favorite: boolean
+  favorite_episode: { season: number; episode: number; name: string; stillPath: string | null } | null
   started_at: string | null
   finished_at: string | null
   created_at: string
