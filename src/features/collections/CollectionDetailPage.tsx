@@ -437,19 +437,28 @@ function ExhibitionHeader({
             edge. Deliberately clipped by the header — a wall of art continues
             past the frame, and a row that stops politely inside the margin
             reads as a widget. */}
+        {/* The fan sits behind the *title*, not behind the actions.
+            Centred vertically it landed straight on the Add / Share / Edit
+            row, so five covers and three buttons occupied the same square inch
+            and the header read as a collision rather than as a composition.
+            Pinned to the top and pulled further right, it now runs behind the
+            upper corner where nothing else lives, and the header's own bottom
+            padding keeps the buttons clear of it. */}
         {covers.length > 1 && (
           <div
-            className="pointer-events-none absolute top-1/2 -right-12 hidden -translate-y-1/2 lg:block"
+            className="pointer-events-none absolute -top-6 -right-20 hidden opacity-90 xl:block"
             aria-hidden
           >
             <div className="overlap-row" style={{ '--overlap': '-3.25rem' } as React.CSSProperties}>
               {covers.slice(0, 5).map((m, i) => (
                 <span
                   key={m.id}
-                  className="frame block w-28 shrink-0"
+                  className="frame block w-24 shrink-0"
                   style={{
-                    transform: `rotate(${(i - 2) * 2.5}deg) translateY(${Math.abs(i - 2) * 7}px)`,
-                    opacity: 0.92 - Math.abs(i - 2) * 0.12,
+                    transform: `rotate(${(i - 2) * 3}deg) translateY(${Math.abs(i - 2) * 9}px)`,
+                    // Fading out to the right so the fan reads as depth
+                    // receding rather than as five equally important covers.
+                    opacity: 0.7 - i * 0.1,
                   }}
                 >
                   {m.coverImage && (
@@ -501,7 +510,7 @@ function ExhibitionHeader({
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-wrap gap-2">
+            <div className="relative z-10 flex shrink-0 flex-wrap gap-2">
               <Button variant="primary" icon={<Plus className="size-4" />} onClick={onAdd}>
                 Add titles
               </Button>

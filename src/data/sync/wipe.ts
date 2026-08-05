@@ -33,6 +33,60 @@ function machineHandle(userId: string): string {
   return `user_${userId.replace(/-/g, '').slice(0, 12)}`
 }
 
+/**
+ * Reset the identity, keep the library.
+ *
+ * The clean-slate requirement was originally handled by a SQL migration, which
+ * is the right tool for a schema change and the wrong one for this: it asks
+ * somebody to open a database console to fix something the product itself
+ * created, and until they do, every screen keeps greeting them by a name they
+ * never chose. A reset that only exists as a `.sql` file is not a reset.
+ *
+ * So it is an action in the app. Narrower than `wipeEverything` on purpose —
+ * entries, rankings, collections and history all survive, because nothing is
+ * wrong with them. Only the name on the door goes.
+ *
+ * Writes the server first and the local store second. The other order leaves a
+ * window where a pull can land the old identity back on a client that has
+ * already cleared it, and the merge in `pull.ts` keeps whichever copy is newer
+ * — which would be the server's.
+ */
+export async function resetProfile(userId: string | null): Promise<void> {
+  const cleared = {
+    displayName: '',
+    handle: userId ? machineHandle(userId) : '',
+    bio: null,
+    avatarUrl: null,
+    bannerUrl: null,
+    accent: null,
+    isPublic: false,
+    favoriteGenres: [],
+  }
+
+  if (supabase && userId) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        handle: cleared.handle,
+        display_name: '',
+        bio: null,
+        avatar_url: null,
+        banner_url: null,
+        accent: null,
+        is_public: false,
+        favorite_genres: [],
+      })
+      .eq('id', userId)
+
+    // Surfaced rather than swallowed: a reset that silently failed server-side
+    // looks exactly like one that worked until the next sign-in brings the old
+    // name back, which is the confusing failure this whole thing exists to end.
+    if (error) throw new Error(error.message)
+  }
+
+  useLibrary.getState().updateProfile(cleared)
+}
+
 export async function wipeEverything(userId: string | null): Promise<void> {
   await clearOutbox()
 

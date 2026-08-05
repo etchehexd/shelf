@@ -403,17 +403,14 @@ function BecauseLead({
 
   return (
     <Section>
+      {/* The provenance moved into the eyebrow.
+          "Recommended Because You Loved Re:ZERO -Starting Life in Another
+          World-" set at display-md is eleven words of headline that runs the
+          full width of the page and shoves the section rule off the end. The
+          heading is the claim; *why* is a caption. */}
       <SectionHeader
-        title={
-          source ? (
-            <>
-              Recommended Because You Loved{' '}
-              <span className="text-accent">{displayTitle(source, language)}</span>
-            </>
-          ) : (
-            'Recommended For You'
-          )
-        }
+        eyebrow={source ? <>Because you loved {displayTitle(source, language)}</> : undefined}
+        title="Recommended For You"
       />
       <FeatureCard media={first} height="lg" layered={rest.slice(0, 3)} />
       {rest.length > 0 && (

@@ -69,6 +69,7 @@ export default function DashboardPage() {
   const lead = continueList[0]
   const leadMedia = lead ? map.get(lead.mediaId) : undefined
   const rest = continueList.slice(1, 4)
+  const hasSideRows = rest.length > 0 || continueList.length > 4
 
   // The covers that stack behind the hero poster — the next few things waiting.
   const layered = useMemo(
@@ -102,7 +103,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-16 pt-1 md:space-y-20">
+    <div className="space-y-14 pt-1 md:space-y-16">
       <Masthead name={firstName} week={week} />
 
       {/* --------------------------------------------------- continue watching */}
@@ -141,7 +142,7 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-5 lg:grid-cols-12">
             {leadMedia && lead && (
-              <div className="min-w-0 lg:col-span-7">
+              <div className={cn('min-w-0', hasSideRows ? 'lg:col-span-7' : 'lg:col-span-12')}>
                 <FeatureCard
                   media={leadMedia}
                   height="lg"
@@ -158,7 +159,14 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <div className="flex min-w-0 flex-col gap-3 lg:col-span-5">
+            {/* Only rendered when it has something in it. An empty grid
+                column is invisible in the markup and enormous on the page. */}
+            <div
+              className={cn(
+                'flex min-w-0 flex-col gap-3 lg:col-span-5',
+                !hasSideRows && 'hidden',
+              )}
+            >
               {rest.map((entry) => {
                 const media = map.get(entry.mediaId)
                 return media ? (

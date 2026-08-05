@@ -272,13 +272,41 @@ function CoverWall({ map }: { map: Map<number, MediaSummary> }) {
     return <div className="size-full bg-gradient-to-br from-accent-quiet via-surface-2 to-surface-3" />
   }
 
+  const lead = covers[0]
+
   return (
-    <div className="flex size-full">
-      {covers.map((m) => (
-        <div key={m.id} className="h-full flex-1 overflow-hidden">
-          {m.coverImage && <img src={m.coverImage} alt="" className="size-full object-cover" />}
-        </div>
-      ))}
+    <div className="relative size-full overflow-hidden">
+      {/* A wash, not a wall.
+          Six 2:3 covers stretched edge to edge across a 21:9 banner crops every
+          one of them through the face and lines them up as a row of hard
+          seams — it reads as a broken image strip, which is exactly what the
+          profile header looked like. One cover blown up and blurred past
+          recognition gives the header the library's color without pretending
+          to show you anything. */}
+      {lead?.coverImage && (
+        <img src={lead.coverImage} alt="" className="art-wash size-full object-cover" />
+      )}
+
+      {/* The actual covers, small and sharp, leaning along the bottom edge —
+          a shelf glimpsed behind the name rather than a mural. */}
+      <div className="absolute right-6 bottom-0 hidden items-end gap-0 md:flex">
+        {covers.slice(0, 7).map((m, i) => (
+          <span
+            key={m.id}
+            className="frame block w-16 shrink-0 lg:w-20"
+            style={{
+              marginLeft: i === 0 ? 0 : '-1.75rem',
+              transform: `rotate(${(i - 3) * 1.6}deg) translateY(${Math.abs(i - 3) * 5}px)`,
+              opacity: 0.55,
+              zIndex: covers.length - i,
+            }}
+          >
+            {m.coverImage && (
+              <img src={m.coverImage} alt="" className="aspect-[2/3] size-full object-cover" />
+            )}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

@@ -347,7 +347,14 @@ function Podium({
       )}
 
       <div className="mx-auto w-full max-w-(--container-page) px-5 py-8 md:px-10 md:py-10">
-        <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,20rem)] lg:gap-12">
+        {/* 1.15fr / 1fr, not 1fr / auto / 20rem.
+            The old track list gave the left column every spare pixel, so on a
+            wide screen "ONE PIECE" sat against six hundred points of nothing
+            with the runners-up marooned at the far edge. Two proportional
+            columns keep the halves in contact at any width, and the divider
+            moved onto the right column as a border so it is actually visible
+            instead of being a 24px hairline lost in the gap. */}
+        <div className="grid items-center gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-14">
           {/* ------------------------------------------------------- number one */}
           <Link
             to={`/media/${first.id}`}
@@ -398,12 +405,8 @@ function Podium({
             </span>
           </Link>
 
-          {/* A hairline, not a border on a box. Only on wide screens, where the
-              two halves actually sit side by side. */}
-          <span className="hidden h-24 w-px bg-line lg:block" aria-hidden />
-
           {/* --------------------------------------------------- runners-up */}
-          <ol className="min-w-0">
+          <ol className="min-w-0 lg:border-l lg:border-line lg:pl-14">
             {[second, third].map((m, i) =>
               m ? (
                 <li key={m.id} className="border-b border-line/70 last:border-0">

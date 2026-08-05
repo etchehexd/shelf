@@ -20,7 +20,7 @@ import { useLibrary } from '@/data/store/library'
 import { usePrefs, type ThemeSetting, type ViewMode } from '@/data/store/prefs'
 import { onSyncStatus, type SyncStatus } from '@/data/sync/engine'
 import { clearDeadLetters, deadLetters, type Op } from '@/data/sync/outbox'
-import { wipeEverything } from '@/data/sync/wipe'
+import { resetProfile, wipeEverything } from '@/data/sync/wipe'
 import { cn } from '@/lib/cn'
 import type { TitleLanguage } from '@/data/anilist/normalize'
 import { pluralize } from '@/lib/format'
@@ -39,6 +39,8 @@ export default function SettingsPage() {
   })
   const [dead, setDead] = useState<Op[]>([])
   const [wiping, setWiping] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const userId = session?.user.id ?? null
 
   useEffect(() => onSyncStatus((status, pending) => setSync({ status, pending })), [])
   useEffect(() => {
@@ -235,6 +237,37 @@ export default function SettingsPage() {
           >
             <Button size="sm" icon={<Download className="size-4" />} onClick={exportLibrary}>
               Export
+            </Button>
+          </SettingRow>
+
+          {/* Narrower than "delete everything", and deliberately not filed
+              under it: this is the fix for an identity the product invented,
+              not a destructive act the user is choosing. Nothing they made
+              goes anywhere. */}
+          <SettingRow
+            label="Reset your profile"
+            description="Clears your display name, handle, bio, avatar and banner. Your library, rankings and collections are untouched."
+          >
+            <Button
+              size="sm"
+              icon={<RotateCcw className="size-4" />}
+              loading={resetting}
+              onClick={async () => {
+                setResetting(true)
+                try {
+                  await resetProfile(userId)
+                  toast({ message: 'Profile reset — it starts blank now' })
+                } catch (e) {
+                  toast({
+                    message: e instanceof Error ? e.message : 'Could not reset the profile',
+                    tone: 'danger',
+                  })
+                } finally {
+                  setResetting(false)
+                }
+              }}
+            >
+              Reset
             </Button>
           </SettingRow>
 
