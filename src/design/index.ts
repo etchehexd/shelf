@@ -84,3 +84,6 @@ export {
   PALETTES,
   type PaletteId,
 } from './theme'
+
+export { useReveal } from './reveal'
+export { usePageAccent } from './pageAccent'

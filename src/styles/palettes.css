@@ -24,19 +24,19 @@
    The default. Declared here too so switching back to it is the same
    mechanism as switching to anything else. */
 [data-palette='ember'] {
-  --accent: #b0541f;
-  --accent-hover: #94441a;
-  --accent-quiet: #f6e8dc;
-  --accent-line: #e3c8ad;
+  --accent: #c2541a;
+  --accent-hover: #a34314;
+  --accent-quiet: #fbe9da;
+  --accent-line: #e8c4a2;
   --accent-ink: #fffdfa;
 }
 
 [data-theme='dark'][data-palette='ember'] {
-  --accent: #e39a55;
-  --accent-hover: #f0af6f;
-  --accent-quiet: #2a2018;
-  --accent-line: #4a3826;
-  --accent-ink: #1a1209;
+  --accent: #f0873a;
+  --accent-hover: #ff9d55;
+  --accent-quiet: #2e1e12;
+  --accent-line: #5c3a1e;
+  --accent-ink: #180d04;
 }
 
 /* ------------------------------------------------------------------ ink --

@@ -251,8 +251,13 @@
     width: 34px;
     height: 3px;
     border-radius: 2px;
-    background: var(--accent);
-    opacity: 0.85;
+    /* The artwork accent, not the brand one. Every page that publishes an
+       --art-accent gets its shelf end-caps tinted by whatever is on screen,
+       which is the cheapest way to make two pages of the same layout feel
+       like different rooms. Falls back to ember. */
+    background: var(--art-accent, var(--accent));
+    opacity: 0.9;
+    transition: background-color 600ms var(--ease-out-soft);
   }
 
   /* ----------------------------------------------------------------- rule --
@@ -485,6 +490,30 @@
   /* Staggered entrance for grids and rails. The delay is set inline per item. */
   .rise-in {
     animation: rise-in 520ms var(--ease-out-expo) both;
+  }
+
+  /* ------------------------------------------------------------- reveal --
+     Driven by data-revealed, set once by useReveal. Opacity and a 14px rise,
+     nothing else — a section that also scales or blurs on entry draws
+     attention to the transition instead of to the section. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 320ms var(--ease-out-soft),
+      transform 320ms var(--ease-out-expo);
+  }
+
+  .reveal[data-revealed='true'] {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   /* ------------------------------------------------------------- reactions --

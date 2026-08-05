@@ -29,12 +29,6 @@ import { ShelfLine } from './Card'
 
 export interface ShelfRailProps {
   children: ReactNode
-  /**
-   * Graduated widths: the first item is largest and each one after steps down
-   * to a floor. A row where every poster is identical is a table; a row where
-   * the leftmost is bigger has a reading direction and a focal point.
-   */
-  graduated?: boolean
   size?: 'sm' | 'md' | 'lg'
   /** Drop the shelf line — only for rails that already sit on one. */
   bare?: boolean
@@ -43,17 +37,23 @@ export interface ShelfRailProps {
   'aria-label'?: string
 }
 
-const RAIL_WIDTH: Record<'sm' | 'md' | 'lg', string[]> = {
-  // index 0 is the lead width; the last entry is the floor every later item
-  // settles at, so a rail of forty does not taper into nothing.
-  sm: ['w-26 md:w-30', 'w-24 md:w-27', 'w-22 md:w-25'],
-  md: ['w-34 md:w-44', 'w-30 md:w-38', 'w-28 md:w-34'],
-  lg: ['w-44 md:w-56', 'w-38 md:w-48', 'w-34 md:w-42'],
+/**
+ * One width per size. The lead is *not* wider any more.
+ *
+ * Graduating the widths sounded like rhythm and rendered as a mistake: the
+ * first cover a few pixels taller than its neighbours, every title beneath it
+ * bottom-aligning at a different line count, and a row that reads as broken
+ * rather than as composed. Rhythm between sections is the shelf *form's* job —
+ * rail versus lean versus grid — not a size ramp inside a single row.
+ */
+const RAIL_WIDTH: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'w-28 md:w-32',
+  md: 'w-32 md:w-40',
+  lg: 'w-40 md:w-52',
 }
 
 export function ShelfRail({
   children,
-  graduated = true,
   size = 'md',
   bare,
   gap = 'md',
@@ -63,19 +63,11 @@ export function ShelfRail({
   const items = Children.toArray(children)
   if (items.length === 0) return null
 
-  const widths = RAIL_WIDTH[size]
-
   return (
     <div className={cn('min-w-0', className)}>
       <Rail aria-label={ariaLabel} gap={gap}>
         {items.map((child, i) => (
-          <div
-            key={i}
-            className={cn(
-              'shrink-0',
-              graduated ? (widths[Math.min(i, widths.length - 1)] ?? widths.at(-1)) : widths[1],
-            )}
-          >
+          <div key={i} className={cn('shrink-0', RAIL_WIDTH[size])}>
             {child}
           </div>
         ))}
@@ -109,7 +101,10 @@ export interface LeanRowProps {
  */
 export function LeanRow({
   children,
-  overlap = 2.25,
+  // 0.9rem, not 2.25. At the old value a 128px cover showed roughly 40px of
+  // itself — a row of vertical slivers you could not identify a single title
+  // from. The lean has to read as "shelved tightly", not as "shredded".
+  overlap = 0.9,
   size = 'md',
   className,
   'aria-label': ariaLabel,

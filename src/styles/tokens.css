@@ -39,10 +39,10 @@
   --ink-inverse: #fbfaf8;
 
   /* accent — ember. Lamplight, a filled star, the spine of a well-read book. */
-  --accent: #b0541f;
-  --accent-hover: #94441a;
-  --accent-quiet: #f6e8dc;
-  --accent-line: #e3c8ad;
+  --accent: #c2541a;
+  --accent-hover: #a34314;
+  --accent-quiet: #fbe9da;
+  --accent-line: #e8c4a2;
   --accent-ink: #fffdfa;
 
   /* status */
@@ -108,25 +108,36 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  /* Warm charcoal, not blue-black — the brief's "cozy coffee shop at night". */
-  --canvas: #131110;
-  --surface: #1c1917;
-  --surface-2: #24201d;
-  --surface-3: #2e2926;
-  --sunk: #100e0d;
-  --border: #2b2622;
-  --border-strong: #3d3730;
+  /* Warm charcoal, with air in it.
 
-  --ink: #f6f2ec;
-  --ink-2: #aaa39a;
-  --ink-3: #8f887e;
+     The old ramp ran #131110 to #1c1917 to #24201d: three browns eight points
+     apart, so every panel, card and menu dissolved into the page behind it and
+     the product read as one flat brown rectangle with text on it. The steps are
+     wider now and the surfaces lift toward a warmer, slightly desaturated grey,
+     which is what lets a card look like it is *on* something rather than cut
+     out of it. The canvas drops darker so those surfaces have a floor. */
+  --canvas: #0d0b0b;
+  --surface: #1a1716;
+  --surface-2: #241f1d;
+  --surface-3: #322b28;
+  --sunk: #070606;
+  --border: #322b27;
+  --border-strong: #4a413a;
+
+  /* More contrast at both ends. --ink-2 was doing double duty as "secondary"
+     and "quiet" and landed washed out against the new surfaces. */
+  --ink: #faf7f2;
+  --ink-2: #bab2a7;
+  --ink-3: #948c81;
   --ink-inverse: #17140f;
 
-  --accent: #e39a55;
-  --accent-hover: #f0af6f;
-  --accent-quiet: #2a2018;
-  --accent-line: #4a3826;
-  --accent-ink: #1a1209;
+  /* A hotter ember. #e39a55 was a muted apricot that read as beige against a
+     warm background — it could not carry a selected state, let alone a brand. */
+  --accent: #f0873a;
+  --accent-hover: #ff9d55;
+  --accent-quiet: #2e1e12;
+  --accent-line: #5c3a1e;
+  --accent-ink: #180d04;
 
   --st-current: #6cb28b;
   --st-completed: #86a3d6;
@@ -153,7 +164,7 @@
   --score-3-ink: #200907;
   --score-0-ink: #150b1f;
 
-  --scrim: 19 17 16;
+  --scrim: 13 11 11;
 
   --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4), 0 3px 8px rgb(0 0 0 / 0.3);

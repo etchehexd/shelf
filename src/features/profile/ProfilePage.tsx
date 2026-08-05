@@ -272,39 +272,33 @@ function CoverWall({ map }: { map: Map<number, MediaSummary> }) {
     return <div className="size-full bg-gradient-to-br from-accent-quiet via-surface-2 to-surface-3" />
   }
 
-  const lead = covers[0]
-
+  /**
+   * Two layers, both full width. No corner ornament.
+   *
+   * The first attempt stretched six 2:3 covers across a 21:9 strip and cropped
+   * every one through the face. The second replaced that with a blur plus a
+   * small fan of covers tucked into the top-right, which read as a smudge or a
+   * rendering artifact rather than as a decision — a decoration small enough
+   * to look accidental is worse than no decoration.
+   *
+   * This is a blurred wash of the lead cover for color, with the real covers
+   * running the *full* width as a tiled band at low opacity. It fills the space
+   * it is given, so there is no corner for the eye to snag on, and at 21:9 each
+   * cover is a vertical stripe of color rather than a cropped portrait.
+   */
   return (
     <div className="relative size-full overflow-hidden">
-      {/* A wash, not a wall.
-          Six 2:3 covers stretched edge to edge across a 21:9 banner crops every
-          one of them through the face and lines them up as a row of hard
-          seams — it reads as a broken image strip, which is exactly what the
-          profile header looked like. One cover blown up and blurred past
-          recognition gives the header the library's color without pretending
-          to show you anything. */}
-      {lead?.coverImage && (
-        <img src={lead.coverImage} alt="" className="art-wash size-full object-cover" />
+      {covers[0]?.coverImage && (
+        <img src={covers[0].coverImage} alt="" className="art-wash size-full object-cover" />
       )}
 
-      {/* The actual covers, small and sharp, leaning along the bottom edge —
-          a shelf glimpsed behind the name rather than a mural. */}
-      <div className="absolute right-6 bottom-0 hidden items-end gap-0 md:flex">
-        {covers.slice(0, 7).map((m, i) => (
-          <span
-            key={m.id}
-            className="frame block w-16 shrink-0 lg:w-20"
-            style={{
-              marginLeft: i === 0 ? 0 : '-1.75rem',
-              transform: `rotate(${(i - 3) * 1.6}deg) translateY(${Math.abs(i - 3) * 5}px)`,
-              opacity: 0.55,
-              zIndex: covers.length - i,
-            }}
-          >
+      <div className="absolute inset-0 flex opacity-40 mix-blend-luminosity" aria-hidden>
+        {covers.slice(0, 10).map((m) => (
+          <div key={m.id} className="h-full flex-1">
             {m.coverImage && (
-              <img src={m.coverImage} alt="" className="aspect-[2/3] size-full object-cover" />
+              <img src={m.coverImage} alt="" className="size-full object-cover blur-[2px]" />
             )}
-          </span>
+          </div>
         ))}
       </div>
     </div>

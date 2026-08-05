@@ -12,6 +12,8 @@ import {
   Section,
   SectionHeader,
   ShelfRail,
+  usePageAccent,
+  useResolvedTheme,
 } from '@/design'
 import {
   hasFilters,
@@ -137,6 +139,10 @@ export default function DiscoverPage() {
 
   const searching = query.trim().length >= 2
   const hasTaste = favorites.length > 0 || affinity.length > 0
+
+  // Whatever is at the top of the page colors the rest of it.
+  const accentSource = favorites[0] ? map.get(favorites[0].mediaId) : undefined
+  usePageAccent(accentSource?.color, useResolvedTheme())
 
   return (
     <div className="space-y-14 pt-1">

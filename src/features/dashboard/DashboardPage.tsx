@@ -15,6 +15,8 @@ import {
   ScoreHistogram,
   Section,
   SectionHeader,
+  usePageAccent,
+  useResolvedTheme,
   ShelfLine,
   Skeleton,
   StatTile,
@@ -68,6 +70,10 @@ export default function DashboardPage() {
 
   const lead = continueList[0]
   const leadMedia = lead ? map.get(lead.mediaId) : undefined
+
+  // The page is tinted by the thing you are currently watching, so Home is a
+  // different color on Tuesday than it was on Monday.
+  usePageAccent(leadMedia?.color, useResolvedTheme())
   const rest = continueList.slice(1, 4)
   const hasSideRows = rest.length > 0 || continueList.length > 4
 
@@ -208,11 +214,24 @@ export default function DashboardPage() {
       {airing.length > 0 && (
         <Section>
           <SectionHeader title="Airing This Week" size="sm" />
-          <ShelfRail aria-label="Upcoming episodes" size="sm" gap="sm" graduated={false}>
-            {airing.map(({ media, airingAt, episode }) => (
-              <AiringCard key={media.id} media={media} airingAt={airingAt} episode={episode} />
-            ))}
-          </ShelfRail>
+          {/* Below four, a scrolling rail is one poster marooned in an empty
+              row with scroll arrows for company. A plain grid fills left to
+              right and simply stops. */}
+          {airing.length < 4 ? (
+            <div className="flex flex-wrap gap-5">
+              {airing.map(({ media, airingAt, episode }) => (
+                <div key={media.id} className="w-28 md:w-32">
+                  <AiringCard media={media} airingAt={airingAt} episode={episode} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <ShelfRail aria-label="Upcoming episodes" size="sm" gap="sm">
+              {airing.map(({ media, airingAt, episode }) => (
+                <AiringCard key={media.id} media={media} airingAt={airingAt} episode={episode} />
+              ))}
+            </ShelfRail>
+          )}
         </Section>
       )}
 

@@ -30,6 +30,8 @@ import {
   SearchInput,
   SegmentedControl,
   toast,
+  usePageAccent,
+  useResolvedTheme,
 } from '@/design'
 import { useMediaMap } from '@/data/anilist/hooks'
 import { displayTitle } from '@/data/anilist/normalize'
@@ -130,6 +132,9 @@ export default function RankingsPage() {
     .filter(Boolean) as MediaSummary[]
 
   const unranked = entries.length - rankedIds.length
+
+  // Your #1 colors the whole room. Nothing on this page is more yours.
+  usePageAccent(podium[0]?.color, useResolvedTheme())
 
   if (signedOut) {
     return (

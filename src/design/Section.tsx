@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { useReveal } from './reveal'
 
 /**
  * The catalog label — mono, wide, uppercase, with a diamond tick. It is the
@@ -83,7 +84,11 @@ export function SectionHeader({
  * to the rail's full unscrolled length and push the whole page sideways.
  */
 export function Section({ className, ...rest }: HTMLAttributes<HTMLElement>) {
-  return <section className={cn('min-w-0 space-y-5', className)} {...rest} />
+  // Every section reveals as it arrives. Opting in per call site would mean
+  // remembering it forty times and forgetting it eleven; the hook no-ops for
+  // anything already on screen at mount, so the top of a page never waits.
+  const ref = useReveal<HTMLElement>()
+  return <section ref={ref} className={cn('reveal min-w-0 space-y-5', className)} {...rest} />
 }
 
 export interface EmptyStateProps {

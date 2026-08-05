@@ -29,6 +29,7 @@ import {
   Layers,
   Link2,
   Lock,
+  MoreHorizontal,
   Pencil,
   Plus,
   Share2,
@@ -437,39 +438,10 @@ function ExhibitionHeader({
             edge. Deliberately clipped by the header — a wall of art continues
             past the frame, and a row that stops politely inside the margin
             reads as a widget. */}
-        {/* The fan sits behind the *title*, not behind the actions.
-            Centred vertically it landed straight on the Add / Share / Edit
-            row, so five covers and three buttons occupied the same square inch
-            and the header read as a collision rather than as a composition.
-            Pinned to the top and pulled further right, it now runs behind the
-            upper corner where nothing else lives, and the header's own bottom
-            padding keeps the buttons clear of it. */}
-        {covers.length > 1 && (
-          <div
-            className="pointer-events-none absolute -top-6 -right-20 hidden opacity-90 xl:block"
-            aria-hidden
-          >
-            <div className="overlap-row" style={{ '--overlap': '-3.25rem' } as React.CSSProperties}>
-              {covers.slice(0, 5).map((m, i) => (
-                <span
-                  key={m.id}
-                  className="frame block w-24 shrink-0"
-                  style={{
-                    transform: `rotate(${(i - 2) * 3}deg) translateY(${Math.abs(i - 2) * 9}px)`,
-                    // Fading out to the right so the fan reads as depth
-                    // receding rather than as five equally important covers.
-                    opacity: 0.7 - i * 0.1,
-                  }}
-                >
-                  {m.coverImage && (
-                    <img src={m.coverImage} alt="" className="aspect-[2/3] size-full object-cover" />
-                  )}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
+        {/* No cover fan. It was centered and collided with the buttons; moved
+            to the corner it became a smudge. A collection header does not need
+            an ornament — it already has the wash behind it and five covers
+            twelve pixels below it. */}
         <div className="relative mx-auto w-full max-w-(--container-page) px-5 pt-6 pb-9 md:px-10 md:pb-12">
           <Link
             to="/collections"
@@ -520,12 +492,35 @@ function ExhibitionHeader({
               <Button icon={<Pencil className="size-4" />} onClick={onEdit}>
                 Edit
               </Button>
-              <IconButton
-                label="Delete collection"
-                icon={<Trash2 className="size-4" />}
-                variant="danger"
-                onClick={onDelete}
-              />
+
+              {/* Delete moves into a menu behind the three dots.
+                  A bare red trash can sitting at the end of a row of labelled
+                  buttons read as detached — visually it belonged to nothing,
+                  and it put the one irreversible action on this page at the
+                  same click cost as "Share". Behind a menu it is still two
+                  clicks away and no longer part of the primary rhythm. */}
+              <Popover
+                align="end"
+                role="menu"
+                label="More"
+                className="w-52"
+                trigger={
+                  <IconButton label="More actions" icon={<MoreHorizontal className="size-4" />} />
+                }
+              >
+                {({ close }) => (
+                  <MenuItem
+                    danger
+                    icon={<Trash2 className="size-4" />}
+                    onSelect={() => {
+                      close()
+                      onDelete()
+                    }}
+                  >
+                    Delete collection
+                  </MenuItem>
+                )}
+              </Popover>
             </div>
           </div>
         </div>
