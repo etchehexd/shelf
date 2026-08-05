@@ -285,13 +285,30 @@ export default function RankingsPage() {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The podium.
+ * The top three, as a masthead.
  *
- * Three plinths of different heights with the numerals set enormous behind the
- * artwork, over a blown-up wash of the number one's cover. It is the page's one
- * indulgence and it earns its place: "what are my top three" is the single
- * question this section exists to answer, and a list of equal rows answers it
- * with the same weight it gives #47.
+ * The previous version was three posters of nearly equal size, centered in a
+ * rounded box, each wearing a medal. That is a podium in the literal sense and
+ * a failure in every other one: three tiles in a row is the exact "identical
+ * cards" shape the rest of the app is trying to escape, the medals said with a
+ * graphic what the layout should have been saying with hierarchy, and the box
+ * around it made your best three titles look like a widget.
+ *
+ * This is an asymmetric editorial band instead:
+ *
+ *   left    #1 at real size, tilted off-axis, standing on the artwork's own
+ *           banner — with the numeral set as display type beside it rather
+ *           than stamped on it
+ *   right   #2 and #3 as compact rows, sharing one hairline-divided column
+ *
+ * Rank is carried by *composition* — size, position, how much room each one
+ * gets — which is what rank actually is. #1 does not need a gold circle to
+ * explain that it is first when it is four times the size of #3 and has its
+ * own artwork behind the whole section.
+ *
+ * Full-bleed rather than boxed. A masthead runs to the edges of the page; a
+ * card sits inside them, and that distinction is most of the difference
+ * between "editorial" and "dashboard".
  */
 function Podium({
   media,
@@ -302,96 +319,125 @@ function Podium({
 }) {
   const language = usePrefs((s) => s.titleLanguage)
   const [first, second, third] = media
+  if (!first) return null
 
-  // Visual order puts the winner in the middle on wide screens — the shape of a
-  // podium — but the DOM order stays 1, 2, 3 for anyone not looking at it.
-  const order = ['md:order-2', 'md:order-1', 'md:order-3']
-  const heights = ['md:pb-0', 'md:pb-8', 'md:pb-12']
-
-  // Roughly a third smaller than it was. The section was eating the fold on a
-  // laptop and pushing the list — the part you came to *use* — off screen, so
-  // the page opened on a trophy cabinet instead of on your ranking. Prominence
-  // is doing the same job now through the ring, the medal and the plinth glow
-  // rather than through sheer size, which is cheaper and reads faster.
-  const widths = ['w-24 md:w-32', 'w-20 md:w-26', 'w-20 md:w-26']
-
-  const medals = [
-    'from-[#f5c451] to-[#c9922a] text-[#3a2a06]',
-    'from-[#d8d8dc] to-[#a8a8ae] text-[#2a2a2e]',
-    'from-[#dda36a] to-[#a9713d] text-[#341f0c]',
-  ]
+  // The banner, not the cover. It is 1900px wide against a cover's 430, so it
+  // is the only asset in the catalog that can fill a band this size without
+  // being upscaled — and it is already the right shape for one.
+  const backdrop = first.bannerImage ?? first.coverImageLarge ?? first.coverImage
 
   return (
-    <section className="relative isolate overflow-hidden rounded-xl border border-line bg-surface-2/60 px-6 pt-8 pb-9 md:px-10">
-      {first?.coverImage && (
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
-          <img src={first.coverImage} alt="" className="art-wash size-full object-cover" />
-          <div className="absolute inset-0 bg-canvas/70" />
+    <section className="bleed-x relative isolate overflow-hidden border-y border-line">
+      {backdrop && (
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
+          <img src={backdrop} alt="" className="size-full scale-105 object-cover object-center" />
+          {/* Two layers: a blur to kill the detail, then a scrim to hold the
+              type. One heavy scrim alone turns every backdrop into the same
+              gray; blurring first keeps the artwork's color and loses only its
+              content, which is the half that was competing with the text. */}
+          <div className="absolute inset-0 backdrop-blur-2xl backdrop-saturate-150" />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(105deg, rgb(var(--scrim) / 0.96) 0%, rgb(var(--scrim) / 0.88) 45%, rgb(var(--scrim) / 0.72) 100%)',
+            }}
+          />
         </div>
       )}
 
-      <ol className="flex flex-wrap items-end justify-center gap-x-6 gap-y-8 md:gap-x-12">
-        {[first, second, third].map((m, i) => {
-          if (!m) return null
-          const entry = byId.get(m.id)
-
-          return (
-            <li key={m.id} className={cn('relative shrink-0', order[i], heights[i])}>
-              <Link
-                to={`/media/${m.id}`}
-                className="group/plinth frame-lift block"
-                title={displayTitle(m, language)}
-              >
-                {/* The plinth: a soft pool of accent under the artwork that
-                    swells on hover. Smaller posters needed something holding
-                    them up, and a glow reads as light on a stage rather than
-                    as another box. */}
-                <span
-                  className={cn(
-                    'pointer-events-none absolute inset-x-0 -bottom-3 -z-10 mx-auto h-8 rounded-[50%] blur-lg',
-                    'transition-[opacity,transform] duration-500 ease-[var(--ease-out-expo)]',
-                    'bg-accent/35 opacity-70 group-hover/plinth:scale-110 group-hover/plinth:opacity-100',
-                    i === 0 ? 'w-28 md:w-36' : 'w-20 md:w-24',
-                  )}
-                  aria-hidden
+      <div className="mx-auto w-full max-w-(--container-page) px-5 py-8 md:px-10 md:py-10">
+        <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,20rem)] lg:gap-12">
+          {/* ------------------------------------------------------- number one */}
+          <Link
+            to={`/media/${first.id}`}
+            className="group/one flex items-center gap-5 md:gap-7"
+            title={displayTitle(first, language)}
+          >
+            {/* Tilted, and it straightens on hover. A poster sitting perfectly
+                square is a database row; three degrees off is an object
+                somebody put down. */}
+            <span className="frame-lift block w-28 shrink-0 md:w-36">
+              <span className="block origin-bottom -rotate-3 transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover/one:rotate-0">
+                <CoverImage
+                  src={first.coverImageLarge ?? first.coverImage}
+                  alt=""
+                  color={first.color}
+                  className="shadow-lg"
                 />
+              </span>
+            </span>
 
-                <div className={cn(widths[i], i === 0 && 'ring-2 ring-accent/70 ring-offset-2 ring-offset-canvas rounded-[3px]')}>
-                  <CoverImage src={m.coverImageLarge ?? m.coverImage} alt="" color={m.color} />
-                </div>
-
-                {/* The medal replaces the giant ghost numeral. It states the
-                    position in a fraction of the space, and gold/silver/bronze
-                    is a rank people read without being told it is one. */}
+            <span className="min-w-0">
+              <span className="flex items-center gap-2.5">
                 <span
-                  className={cn(
-                    'font-mono-num absolute -top-2.5 -left-2.5 flex items-center justify-center rounded-full',
-                    'bg-gradient-to-br font-bold shadow-md tabular-nums',
-                    'transition-transform duration-300 ease-[var(--ease-spring)] group-hover/plinth:scale-115',
-                    medals[i],
-                    i === 0 ? 'size-9 text-title' : 'size-7 text-meta',
-                  )}
+                  className="font-display text-display-xl leading-[0.8] font-extrabold text-accent tabular-nums"
                   aria-hidden
                 >
-                  {i + 1}
+                  1
                 </span>
-              </Link>
+                <span className="label-cat label-cat-plain pb-1">
+                  your
+                  <br />
+                  number one
+                </span>
+              </span>
 
-              <div className={cn('mt-3', widths[i])}>
-                <p
-                  className={cn(
-                    'clamp-2 leading-snug font-medium text-ink',
-                    i === 0 ? 'text-label' : 'text-meta',
-                  )}
-                >
-                  {displayTitle(m, language)}
-                </p>
-                {entry?.score != null && <Rating value={entry.score} size="xs" className="mt-1.5" />}
-              </div>
-            </li>
-          )
-        })}
-      </ol>
+              <span className="clamp-2 mt-3 block text-balance text-display-md text-ink transition-colors duration-300 group-hover/one:text-accent">
+                {displayTitle(first, language)}
+              </span>
+
+              <span className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                {byId.get(first.id)?.score != null && (
+                  <Rating value={byId.get(first.id)!.score} size="sm" />
+                )}
+                <span className="label-cat label-cat-plain">
+                  {[first.seasonYear, first.format?.replace(/_/g, ' ')].filter(Boolean).join(' · ')}
+                </span>
+              </span>
+            </span>
+          </Link>
+
+          {/* A hairline, not a border on a box. Only on wide screens, where the
+              two halves actually sit side by side. */}
+          <span className="hidden h-24 w-px bg-line lg:block" aria-hidden />
+
+          {/* --------------------------------------------------- runners-up */}
+          <ol className="min-w-0">
+            {[second, third].map((m, i) =>
+              m ? (
+                <li key={m.id} className="border-b border-line/70 last:border-0">
+                  <Link
+                    to={`/media/${m.id}`}
+                    className="group/up flex items-center gap-3.5 py-3"
+                    title={displayTitle(m, language)}
+                  >
+                    <span
+                      className="font-display w-6 shrink-0 text-display-sm leading-none font-bold text-ink-3/60 tabular-nums transition-colors duration-300 group-hover/up:text-accent"
+                      aria-hidden
+                    >
+                      {i + 2}
+                    </span>
+
+                    <span className="frame-lift block w-11 shrink-0">
+                      <CoverImage src={m.coverImage} alt="" color={m.color} />
+                    </span>
+
+                    <span className="min-w-0 flex-1">
+                      <span className="clamp-1 block text-title text-ink transition-colors duration-300 group-hover/up:text-accent">
+                        {displayTitle(m, language)}
+                      </span>
+                      {byId.get(m.id)?.score != null && (
+                        <Rating value={byId.get(m.id)!.score} size="xs" className="mt-1.5" />
+                      )}
+                    </span>
+                  </Link>
+                </li>
+              ) : null,
+            )}
+          </ol>
+        </div>
+      </div>
     </section>
   )
 }
